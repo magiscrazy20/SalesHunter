@@ -1,0 +1,57 @@
+{% extends "leads/email_base.html" %}
+{% load humanize %}
+
+{% block title %}Email Warmup - SalesHunter v2{% endblock %}
+
+{% block email_content %}
+<h2 style="margin-bottom:20px;">Email Warmup</h2>
+
+<div class="alert alert-blue">
+  Email warmup gradually increases sending volume on new SMTP accounts to build sender reputation and avoid spam filters. Recommended: warm up for 2-3 weeks before launching campaigns.
+</div>
+
+{% if connections %}
+<div class="card" style="overflow-x:auto;">
+  <h3>SMTP Accounts</h3>
+  <table>
+    <thead><tr><th>Account</th><th>From Email</th><th>Daily Limit</th><th>Status</th><th>Warmup Status</th></tr></thead>
+    <tbody>
+    {% for s in connections %}
+    <tr>
+      <td style="color:var(--text);font-weight:700;">{{ s.name }}</td>
+      <td style="color:var(--cyan);font-size:12px;font-family:'JetBrains Mono',monospace;">{{ s.from_email }}</td>
+      <td>{{ s.daily_limit }}/day</td>
+      <td>{% if s.is_active %}<span class="badge badge-green">Active</span>{% else %}<span class="badge badge-red">Inactive</span>{% endif %}</td>
+      <td><span class="badge badge-orange">Not Started</span></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="grid-3" style="margin-top:16px;">
+  <div class="card" style="border-top:3px solid var(--blue);">
+    <h3 style="color:var(--blue);">Week 1</h3>
+    <div style="font-size:28px;font-weight:800;color:var(--blue);margin:8px 0;">5-10/day</div>
+    <div style="font-size:12px;color:var(--text-dim);">Start slow. Send to internal + friendly contacts.</div>
+  </div>
+  <div class="card" style="border-top:3px solid var(--purple);">
+    <h3 style="color:var(--purple);">Week 2</h3>
+    <div style="font-size:28px;font-weight:800;color:var(--purple);margin:8px 0;">20-40/day</div>
+    <div style="font-size:12px;color:var(--text-dim);">Increase volume. Monitor bounce rate and spam reports.</div>
+  </div>
+  <div class="card" style="border-top:3px solid var(--green);">
+    <h3 style="color:var(--green);">Week 3+</h3>
+    <div style="font-size:28px;font-weight:800;color:var(--green);margin:8px 0;">65/day</div>
+    <div style="font-size:12px;color:var(--text-dim);">Full volume. Ready for campaigns. Keep monitoring deliverability.</div>
+  </div>
+</div>
+{% else %}
+<div class="card" style="text-align:center;padding:50px;">
+  <div style="font-size:40px;margin-bottom:12px;">&#128293;</div>
+  <div style="font-size:16px;font-weight:600;margin-bottom:8px;">No SMTP accounts to warm up</div>
+  <div style="font-size:13px;color:var(--text-dim);margin-bottom:20px;">Add SMTP connections first, then warm them up here</div>
+  <a href="{% url 'email_smtp_create' %}" class="btn btn-blue">+ Add SMTP</a>
+</div>
+{% endif %}
+{% endblock %}

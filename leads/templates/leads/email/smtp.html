@@ -1,0 +1,46 @@
+{% extends "leads/email_base.html" %}
+{% load humanize %}
+
+{% block title %}SMTP Settings - SalesHunter v2{% endblock %}
+
+{% block email_content %}
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+  <h2>SMTP Settings</h2>
+  <a href="{% url 'email_smtp_create' %}" class="btn btn-blue">+ Add SMTP</a>
+</div>
+
+{% if connections %}
+<div class="card" style="overflow-x:auto;">
+  <table>
+    <thead><tr><th>Name</th><th>Host</th><th>Port</th><th>From Email</th><th>From Name</th><th>TLS</th><th>Daily Limit</th><th>Active</th><th>Action</th></tr></thead>
+    <tbody>
+    {% for s in connections %}
+    <tr>
+      <td style="color:var(--text);font-weight:700;">{{ s.name }}</td>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:12px;">{{ s.host }}</td>
+      <td>{{ s.port }}</td>
+      <td style="color:var(--cyan);font-size:12px;">{{ s.from_email }}</td>
+      <td>{{ s.from_name|default:"—" }}</td>
+      <td>{% if s.use_tls %}<span style="color:var(--green);">&#10003;</span>{% else %}<span style="color:var(--red);">&#10007;</span>{% endif %}</td>
+      <td>{{ s.daily_limit }}</td>
+      <td>{% if s.is_active %}<span class="badge badge-green">Active</span>{% else %}<span class="badge badge-red">Inactive</span>{% endif %}</td>
+      <td>
+        <form method="post" action="{% url 'email_smtp_delete' s.pk %}" style="display:inline;" onsubmit="return confirm('Delete this SMTP connection?');">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-red btn-sm">Delete</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card" style="text-align:center;padding:50px;">
+  <div style="font-size:40px;margin-bottom:12px;">&#128268;</div>
+  <div style="font-size:16px;font-weight:600;margin-bottom:8px;">No SMTP connections</div>
+  <div style="font-size:13px;color:var(--text-dim);margin-bottom:20px;">Add your SMTP servers to start sending emails</div>
+  <a href="{% url 'email_smtp_create' %}" class="btn btn-blue">+ Add SMTP</a>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,50 @@
+{% extends "leads/email_base.html" %}
+{% load humanize %}
+
+{% block title %}Campaigns - SalesHunter v2{% endblock %}
+
+{% block email_content %}
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+  <h2>Campaigns</h2>
+  <a href="{% url 'campaign_create' %}" class="btn btn-blue">+ New Campaign</a>
+</div>
+
+{% if campaigns %}
+<div class="card" style="overflow-x:auto;">
+  <table>
+    <thead>
+      <tr><th>Campaign</th><th>Status</th><th>Recipients</th><th>Sent</th><th>Opened</th><th>Replied</th><th>Bounced</th><th>Open %</th><th>Reply %</th><th>Created</th></tr>
+    </thead>
+    <tbody>
+    {% for c in campaigns %}
+    <tr>
+      <td><a href="{% url 'campaign_detail' c.pk %}" style="color:var(--text);font-weight:700;">{{ c.name }}</a></td>
+      <td>
+        {% if c.status == 'sending' %}<span class="badge badge-green">Sending</span>
+        {% elif c.status == 'sent' %}<span class="badge badge-blue">Sent</span>
+        {% elif c.status == 'scheduled' %}<span class="badge" style="background:var(--purple-bg);color:var(--purple);">Scheduled</span>
+        {% elif c.status == 'paused' %}<span class="badge badge-orange">Paused</span>
+        {% else %}<span class="badge" style="background:var(--surface2);color:var(--text-dim);">Draft</span>{% endif %}
+      </td>
+      <td>{{ c.total_recipients|intcomma }}</td>
+      <td>{{ c.total_sent|intcomma }}</td>
+      <td>{{ c.total_opened|intcomma }}</td>
+      <td style="color:var(--green);font-weight:700;">{{ c.total_replied|intcomma }}</td>
+      <td style="color:var(--red);">{{ c.total_bounced|intcomma }}</td>
+      <td style="font-family:'JetBrains Mono',monospace;">{{ c.open_rate }}%</td>
+      <td style="font-family:'JetBrains Mono',monospace;">{{ c.reply_rate }}%</td>
+      <td style="font-size:11px;color:var(--text-dim);">{{ c.created_at|date:"M d, Y" }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card" style="text-align:center;padding:50px;">
+  <div style="font-size:40px;margin-bottom:12px;">&#9993;</div>
+  <div style="font-size:16px;font-weight:600;margin-bottom:8px;">No campaigns yet</div>
+  <div style="font-size:13px;color:var(--text-dim);margin-bottom:20px;">Create your first email campaign to start reaching leads</div>
+  <a href="{% url 'campaign_create' %}" class="btn btn-blue">+ Create Campaign</a>
+</div>
+{% endif %}
+{% endblock %}

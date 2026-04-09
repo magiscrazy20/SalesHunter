@@ -1,0 +1,51 @@
+{% extends "leads/master/base.html" %}
+{% block title %}{{ country }} - Process Leads{% endblock %}
+{% block form_page_title %}{{ country }}{% endblock %}
+
+{% block form_content %}
+<div class="search-panel" style="padding:12px 24px;">
+    {% if category %}
+    <a href="{% url 'master_process_leads' %}" style="color:var(--purple);text-decoration:none;font-size:13px;">All Categories</a>
+    <span style="color:var(--text-dim);margin:0 6px;">&#8250;</span>
+    <a href="{% url 'master_process_leads_category' category %}" style="color:var(--purple);text-decoration:none;font-size:13px;">{{ category }}</a>
+    <span style="color:var(--text-dim);margin:0 6px;">&#8250;</span>
+    {% else %}
+    <a href="{% url 'master_process_leads' %}" style="color:var(--purple);text-decoration:none;font-size:13px;">&#8592; All Categories</a>
+    <span style="color:var(--text-dim);margin:0 6px;">&#8250;</span>
+    {% endif %}
+    <strong style="color:var(--text);">{{ country }}</strong>
+</div>
+
+<div class="stats">
+    <div class="stat-card" data-title="Total Leads" data-detail='[["Country","{{ country }}"],["Total","{{ total }}"],["With Email","{{ with_email }}"],["With Phone","{{ with_phone }}"],["With Website","{{ with_website }}"]]'><div class="num">{{ total }}</div><div class="label">Total Leads</div></div>
+    <div class="stat-card" data-title="With Email" data-detail='[["Country","{{ country }}"],["Leads with Email","{{ with_email }}"],["Total","{{ total }}"]]'><div class="num" style="color:#4ade80;">{{ with_email }}</div><div class="label">With Email</div></div>
+    <div class="stat-card" data-title="With Phone" data-detail='[["Country","{{ country }}"],["Leads with Phone","{{ with_phone }}"],["Total","{{ total }}"]]'><div class="num" style="color:#22d3ee;">{{ with_phone }}</div><div class="label">With Phone</div></div>
+    <div class="stat-card" data-title="With Website" data-detail='[["Country","{{ country }}"],["Leads with Website","{{ with_website }}"],["Total","{{ total }}"]]'><div class="num" style="color:#f59e0b;">{{ with_website }}</div><div class="label">With Website</div></div>
+    <div class="stat-card" style="display:flex;align-items:center;gap:8px;">
+        <a href="{% url 'master_process_leads_country_all' country %}{% if category %}?cat={{ category|urlencode }}{% endif %}" class="btn btn-primary" style="text-decoration:none;white-space:nowrap;">&#128065; View All Leads</a>
+    </div>
+</div>
+
+{% if regions %}
+<div class="country-grid">
+    {% for region_name, count in regions %}
+    <a href="{% url 'master_process_leads_region' country region_name %}{% if category %}?cat={{ category|urlencode }}{% endif %}" class="country-card" data-title="{{ region_name }}" data-detail='[["Region","{{ region_name }}"],["Country","{{ country }}"],["Leads","{{ count }}"],["Click","View leads"]]'>
+        <div class="country-name">{{ region_name }}</div>
+        <div class="country-count">{{ count }} leads</div>
+    </a>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state"><p>No region data available for {{ country }}.</p></div>
+{% endif %}
+{% endblock %}
+
+{% block form_extra_js %}
+<style>
+.country-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-top: 16px; }
+.country-card { display: block; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; text-decoration: none; transition: all 0.15s; }
+.country-card:hover { border-color: var(--purple); background: var(--bg); transform: translateY(-2px); }
+.country-name { font-size: 16px; font-weight: 600; color: var(--text); }
+.country-count { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+</style>
+{% endblock %}

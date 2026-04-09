@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+{% load humanize leads_extras %}
+
+{% block title %}Intelligence - SalesHunter v2{% endblock %}
+
+{% block content %}
+<div class="sec">
+  <div class="sec-title">Lead Intelligence & Auto-Optimization</div>
+</div>
+
+<!-- Country Performance -->
+<div class="sec">
+  <h3 style="margin-bottom:12px;">Performance by Country</h3>
+  <div class="card" style="overflow-x:auto;">
+    <table>
+      <thead><tr><th>Country</th><th>Total Leads</th><th>Emailed</th><th>Replies</th><th>Reply %</th><th>Interested</th><th>Closed</th><th>Close %</th><th>Revenue</th></tr></thead>
+      <tbody>
+      {% for c in country_stats %}
+      <tr>
+        <td style="color:var(--text);font-weight:700;">{{ c.country }}</td>
+        <td>{{ c.total|intcomma }}</td>
+        <td>{{ c.emailed|intcomma }}</td>
+        <td>{{ c.replied_count }}</td>
+        <td style="font-family:'JetBrains Mono',monospace;{% if c.total %}{% with rate=c.replied_count|percentage:c.total %}{% if '0.0' in rate %}color:var(--red){% else %}color:var(--green){% endif %}{% endwith %}{% endif %}">
+          {% if c.total %}{{ c.replied_count|percentage:c.total }}{% else %}0%{% endif %}
+        </td>
+        <td>{{ c.interested_count }}</td>
+        <td style="color:var(--green);font-weight:700;">{{ c.closed_count }}</td>
+        <td style="font-family:'JetBrains Mono',monospace;">{% if c.total %}{{ c.closed_count|percentage:c.total }}{% else %}0%{% endif %}</td>
+        <td style="color:var(--green);font-family:'JetBrains Mono',monospace;">${{ c.revenue|default:0|intcomma }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="9" style="text-align:center;color:var(--text-dim);">No data yet</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="grid-2">
+  <!-- Lead Type Performance -->
+  <div class="card">
+    <h3>By Lead Type</h3>
+    <table>
+      <thead><tr><th>Type</th><th>Leads</th><th>Replies</th><th>Closed</th><th>Close %</th></tr></thead>
+      <tbody>
+      {% for t in type_stats %}
+      <tr>
+        <td style="color:var(--text);font-weight:600;">{{ t.lead_type }}</td>
+        <td>{{ t.total|intcomma }}</td>
+        <td>{{ t.replied_count }}</td>
+        <td style="color:var(--green);font-weight:700;">{{ t.closed_count }}</td>
+        <td>{% if t.total %}{{ t.closed_count|percentage:t.total }}{% else %}0%{% endif %}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5" style="text-align:center;color:var(--text-dim);">No data yet</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Source Performance -->
+  <div class="card">
+    <h3>By Source</h3>
+    <table>
+      <thead><tr><th>Source</th><th>Leads</th><th>Replies</th><th>Closed</th><th>Reply %</th></tr></thead>
+      <tbody>
+      {% for s in source_stats %}
+      <tr>
+        <td style="color:var(--text);font-weight:600;">{{ s.source }}</td>
+        <td>{{ s.total|intcomma }}</td>
+        <td>{{ s.replied_count }}</td>
+        <td style="color:var(--green);font-weight:700;">{{ s.closed_count }}</td>
+        <td>{% if s.total %}{{ s.replied_count|percentage:s.total }}{% else %}0%{% endif %}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5" style="text-align:center;color:var(--text-dim);">No data yet</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Exclusion Rules -->
+<div class="sec" style="margin-top:24px;">
+  <h3 style="margin-bottom:12px;">Auto-Exclusion Rules</h3>
+  <div class="card" style="overflow-x:auto;">
+    <table>
+      <thead><tr><th>Rule</th><th>Target</th><th>Leads</th><th>Metric</th><th>Active</th><th>Override</th><th>Action</th></tr></thead>
+      <tbody>
+      {% for rule in exclusions %}
+      <tr>
+        <td style="font-size:12px;">{{ rule.get_rule_type_display }}</td>
+        <td style="color:var(--text);font-weight:600;">{{ rule.dimension_value }}</td>
+        <td>{{ rule.leads_contacted|intcomma }}</td>
+        <td style="font-family:'JetBrains Mono',monospace;">{{ rule.metric_value|floatformat:1 }}%</td>
+        <td>{% if rule.is_active %}<span class="badge badge-red">Active</span>{% else %}<span class="badge" style="background:var(--surface2);color:var(--text-dim);">Inactive</span>{% endif %}</td>
+        <td>{% if rule.overridden %}<span class="badge badge-orange">Overridden</span>{% else %}—{% endif %}</td>
+        <td>
+          <form method="post" action="{% url 'toggle_exclusion' rule.pk %}" style="display:inline;">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-sm {% if rule.overridden %}btn-red{% else %}btn-outline{% endif %}">
+              {% if rule.overridden %}Remove Override{% else %}Override{% endif %}
+            </button>
+          </form>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="7" style="text-align:center;color:var(--text-dim);">No exclusion rules applied yet</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Source Exhaustion -->
+<div class="sec" style="margin-top:24px;">
+  <h3 style="margin-bottom:12px;">Source Exhaustion Tracker</h3>
+  <div class="card" style="overflow-x:auto;">
+    <table>
+      <thead><tr><th>Source</th><th>Keyword</th><th>Country</th><th>City</th><th>Type</th><th>Found</th><th>Status</th><th>Last Scraped</th></tr></thead>
+      <tbody>
+      {% for s in exhaustion %}
+      <tr>
+        <td>{{ s.get_source_display }}</td>
+        <td style="font-family:'JetBrains Mono',monospace;font-size:11px;">{{ s.keyword }}</td>
+        <td>{{ s.country }}</td>
+        <td>{{ s.city|default:"—" }}</td>
+        <td>{{ s.lead_type|default:"—" }}</td>
+        <td style="font-weight:700;">{{ s.total_found }}</td>
+        <td>
+          {% if s.status == 'exhausted' %}<span class="badge badge-red">Exhausted</span>
+          {% elif s.status == 'paused' %}<span class="badge badge-orange">Paused</span>
+          {% else %}<span class="badge badge-green">Active</span>{% endif %}
+        </td>
+        <td style="font-size:11px;">{{ s.last_scraped|date:"M d, Y" }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="8" style="text-align:center;color:var(--text-dim);">No source tracking data yet</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Weekly Reports -->
+{% if reports %}
+<div class="sec" style="margin-top:24px;">
+  <h3 style="margin-bottom:12px;">Weekly Reports</h3>
+  {% for report in reports %}
+  <div class="card">
+    <h3>Week of {{ report.report_date|date:"M d, Y" }}</h3>
+    <div class="stats-row" style="margin-top:12px;">
+      <div class="stat"><div class="num" style="color:var(--green);font-size:20px;">{{ report.total_leads|intcomma }}</div><div class="lbl">Leads</div></div>
+      <div class="stat"><div class="num" style="color:var(--blue);font-size:20px;">{{ report.total_emailed|intcomma }}</div><div class="lbl">Emailed</div></div>
+      <div class="stat"><div class="num" style="color:var(--purple);font-size:20px;">{{ report.total_forms_filled|intcomma }}</div><div class="lbl">Forms</div></div>
+      <div class="stat"><div class="num" style="color:var(--orange);font-size:20px;">{{ report.total_replies|intcomma }}</div><div class="lbl">Replies</div></div>
+      <div class="stat"><div class="num" style="color:var(--yellow);font-size:20px;">{{ report.total_interested|intcomma }}</div><div class="lbl">Interested</div></div>
+      <div class="stat"><div class="num" style="color:var(--green);font-size:20px;">{{ report.total_closed|intcomma }}</div><div class="lbl">Closed</div></div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

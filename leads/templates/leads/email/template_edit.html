@@ -1,0 +1,35 @@
+{% extends "leads/email_base.html" %}
+
+{% block title %}Edit Template - SalesHunter v2{% endblock %}
+
+{% block email_content %}
+<h2 style="margin-bottom:20px;">Edit Email Template</h2>
+
+<div class="card">
+  <form method="post">
+    {% csrf_token %}
+    <div style="margin-bottom:16px;">
+      <label style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;">Template Name</label>
+      <input type="text" name="name" value="{{ template.name }}" style="width:100%;" required>
+    </div>
+    <div style="margin-bottom:16px;">
+      <label style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;">Subject Line</label>
+      <input type="text" name="subject" value="{{ template.subject }}" style="width:100%;" required>
+    </div>
+    <div style="margin-bottom:16px;">
+      <label style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;">Email Body</label>
+      <textarea name="body" style="width:100%;min-height:200px;resize:vertical;" required>{{ template.body }}</textarea>
+      <div style="font-size:11px;color:var(--text-dim);margin-top:6px;font-family:'JetBrains Mono',monospace;">
+        Available: <span style="background:var(--surface2);padding:2px 6px;border-radius:4px;">{{firstName}}</span>
+        <span style="background:var(--surface2);padding:2px 6px;border-radius:4px;">{{lastName}}</span>
+        <span style="background:var(--surface2);padding:2px 6px;border-radius:4px;">{{company}}</span>
+        <span style="background:var(--surface2);padding:2px 6px;border-radius:4px;">{{email}}</span>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button type="submit" class="btn btn-blue">Save Changes</button>
+      <a href="{% url 'email_templates' %}" class="btn btn-outline">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

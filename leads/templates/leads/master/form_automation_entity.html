@@ -1,0 +1,46 @@
+{% extends "leads/master/base.html" %}
+{% load leads_extras %}
+{% block title %}{{ entity.company }} - Form Automation{% endblock %}
+{% block form_page_title %}Form Automation — {{ entity.company }}{% endblock %}
+
+
+{% block form_content %}
+<div class="search-panel" style="padding:14px 24px;">
+    <a href="{% url 'master_form_automation' %}" style="color:var(--purple);text-decoration:none;font-size:13px;">&#8592; All Entities</a>
+    <span style="color:var(--text-dim);margin:0 6px;">|</span>
+    <strong style="color:var(--text);">{{ entity.company }}</strong>
+    <span style="color:var(--text-dim);font-size:12px;margin-left:8px;">{{ entity.email }}</span>
+</div>
+
+<div class="stats">
+    <div class="stat-card" data-title="Total Leads" data-detail='[["Entity","{{ entity.company }}"],["Total Leads","{{ stats.total }}"],["Websites","{{ stats.websites }}"],["Success","{{ stats.success }}"],["Failed","{{ stats.failed }}"],["Running","{{ stats.running }}"]]'><div class="num">{{ stats.total }}</div><div class="label">Total Leads</div></div>
+    <div class="stat-card" data-title="Websites Processed" data-detail='[["Websites Processed","{{ stats.websites }}"],["Success","{{ stats.success }}"],["Failed","{{ stats.failed }}"]]'><div class="num" style="color:#f59e0b;">{{ stats.websites }}</div><div class="label">Websites Processed</div></div>
+    <div class="stat-card" data-title="Success" data-detail='[["Successfully Filled","{{ stats.success }}"],["Total","{{ stats.total }}"]]'><div class="num" style="color:#4ade80;">{{ stats.success }}</div><div class="label">Success</div></div>
+    <div class="stat-card" data-title="Failed" data-detail='[["Failed","{{ stats.failed }}"],["Total","{{ stats.total }}"]]'><div class="num" style="color:#f87171;">{{ stats.failed }}</div><div class="label">Failed</div></div>
+    <div class="stat-card" data-title="Running" data-detail='[["Currently Running","{{ stats.running }}"],["Total","{{ stats.total }}"]]'><div class="num" style="color:#fbbf24;">{{ stats.running }}</div><div class="label">Running</div></div>
+</div>
+
+{% include "leads/master/includes/chart_progress.html" with chart_id="entity" stats_json=stats_json %}
+
+{% if categories %}
+<h3 style="color:var(--text);font-size:15px;margin-bottom:12px;">Keyword Categories</h3>
+<div class="country-grid">
+    {% for c in categories %}
+    <a href="{% url 'master_form_automation_cat' entity.company c.name %}" class="country-card" data-title="{{ c.name }}" data-detail='[["Category","{{ c.name }}"],["Total Leads","{{ c.total }}"],["Websites","{{ c.websites }}"],["Success","{{ c.success }}"],["Failed","{{ c.failed }}"],["Running","{{ c.running }}"]]'>
+        <div class="country-name">{{ c.name }}</div>
+        <div style="color:var(--text-dim);font-size:11px;margin-top:4px;">{{ c.total }} leads &middot; {{ c.websites }} websites</div>
+        <div style="margin-top:6px;display:flex;gap:6px;">
+            <span class="badge badge-green">{{ c.success }}</span>
+            <span class="badge" style="background:#7f1d1d;color:#fca5a5;">{{ c.failed }}</span>
+            <span style="color:var(--text-dim);font-size:10px;align-self:center;">/ {{ c.websites }}</span>
+        </div>
+    </a>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state"><p>No leads with websites found. Generate leads first.</p></div>
+{% endif %}
+{% endblock %}
+
+{% block form_extra_js %}
+{% endblock %}

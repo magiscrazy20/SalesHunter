@@ -1,0 +1,150 @@
+{% extends "leads/master/base.html" %}
+{% block title %}Lead History - Lead Master{% endblock %}
+{% block form_page_title %}Lead History{% endblock %}
+
+{% block form_content %}
+{% if sessions %}
+<div class="table-wrap">
+    <table id="sessionsTable">
+        <thead>
+            <tr>
+                <th class="sortable" data-col="0">Status &#8645;</th>
+                <th class="sortable" data-col="1">Sources &#8645;</th>
+                <th class="sortable" data-col="2">Keywords &#8645;</th>
+                <th class="sortable" data-col="3">Location &#8645;</th>
+                <th class="sortable" data-col="4">Leads &#8645;</th>
+                <th class="sortable" data-col="5">Date &#8645;</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for s in sessions %}
+            <tr id="session-row-{{ s.id }}">
+                <td data-status="{{ s.status }}">
+                    {% if s.status == 'running' %}
+                        <span class="badge badge-running"><span class="mini-spinner" style="margin-right:4px;"></span> Running</span>
+                    {% elif s.status == 'completed' %}
+                        <span class="badge badge-green">Completed</span>
+                    {% elif s.status == 'partial' %}
+                        <span class="badge" style="background:#422006;color:#fbbf24;">Partial</span>
+                    {% else %}
+                        <span class="badge" style="background:#7f1d1d;color:#fca5a5;">Failed</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% with sources=s.search_params.sources %}
+                        {% if sources %}
+                            {% if sources|length == 3 %}
+                                <span class="badge src-master">Master</span>
+                            {% else %}
+                                {% for src in sources %}
+                                    <span class="badge src-master" style="margin:1px;">{{ src }}</span>
+                                {% endfor %}
+                            {% endif %}
+                        {% else %}
+                            <span class="badge src-{{ s.source }}">{{ s.get_source_display }}</span>
+                        {% endif %}
+                    {% endwith %}
+                </td>
+                <td>{{ s.search_params.keywords|default:"—" }}</td>
+                <td>{% firstof s.search_params.location s.search_params.locations "—" %}</td>
+                <td><strong>{{ s.lead_count }}</strong></td>
+                <td style="color:var(--text-muted);font-size:12px;" data-ts="{{ s.created_at|date:'U' }}">{{ s.created_at|date:"M d, Y h:i A" }}</td>
+                <td style="white-space:nowrap;">
+                    <a href="{% url 'master_session_detail' s.id %}" class="btn btn-secondary" style="padding:4px 12px;font-size:12px;">View</a>
+                    <button class="btn" style="padding:4px 12px;font-size:12px;background:#7f1d1d;color:#fca5a5;" onclick="deleteSession('{{ s.id }}', this)">Delete</button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="empty-state">
+    <p style="font-size:36px;margin-bottom:8px;">&#128202;</p>
+    <p>No leads generated yet. Go to <a href="{% url 'master_master' %}" style="color:var(--purple);">Get Leads</a> to start.</p>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block form_extra_js %}
+<style>
+.badge-running { background: #422006; color: #fbbf24; display: inline-flex; align-items: center; }
+.sortable { cursor: pointer; user-select: none; }
+.sortable:hover { color: var(--text); }
+</style>
+<script>
+// Auto-refresh running sessions
+setInterval(async () => {
+    const running = document.querySelectorAll('.badge-running');
+    if (!running.length) return;
+    try {
+        const resp = await fetch('/form/master/api/sessions/');
+        if (!resp.ok) return;
+        const sessions = await resp.json();
+        sessions.forEach(s => {
+            const row = document.getElementById(`session-row-${s.id}`);
+            if (!row) return;
+            row.cells[4].innerHTML = `<strong>${s.lead_count}</strong>`;
+            const sc = row.cells[0];
+            if (s.status === 'completed') {
+                sc.innerHTML = '<span class="badge badge-green">Completed</span>';
+                sc.dataset.status = 'completed';
+            } else if (s.status === 'failed') {
+                sc.innerHTML = '<span class="badge" style="background:#7f1d1d;color:#fca5a5;">Failed</span>';
+                sc.dataset.status = 'failed';
+            } else if (s.status === 'running' && s.progress) {
+                const p = s.progress;
+                sc.innerHTML = `<span class="badge badge-running"><span class="mini-spinner" style="margin-right:4px;"></span> ${esc(p.stage||'Running')} ${p.pct||0}%</span>`;
+            }
+        });
+    } catch(e) {}
+}, 5000);
+
+// Delete session
+async function deleteSession(id, btn) {
+    if (!confirm('Delete this session and all its leads?')) return;
+    btn.disabled = true;
+    try {
+        const resp = await postJSON(`/form/master/api/session/${id}/delete/`, {});
+        if (resp.ok) {
+            const row = document.getElementById(`session-row-${id}`);
+            if (row) row.remove();
+            showToast('Session deleted');
+        }
+    } catch(e) { btn.disabled = false; }
+}
+
+// Column sorting
+let sortState = {};
+document.querySelectorAll('.sortable').forEach(th => {
+    th.addEventListener('click', () => {
+        const col = parseInt(th.dataset.col);
+        const asc = sortState[col] !== 'asc';
+        sortState[col] = asc ? 'asc' : 'desc';
+
+        const tbody = document.querySelector('#sessionsTable tbody');
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+
+        rows.sort((a, b) => {
+            let va, vb;
+            if (col === 4) {
+                va = parseInt(a.cells[col].textContent) || 0;
+                vb = parseInt(b.cells[col].textContent) || 0;
+            } else if (col === 5) {
+                va = parseInt(a.cells[col].dataset.ts) || 0;
+                vb = parseInt(b.cells[col].dataset.ts) || 0;
+            } else {
+                va = a.cells[col].textContent.trim().toLowerCase();
+                vb = b.cells[col].textContent.trim().toLowerCase();
+            }
+            if (va < vb) return asc ? -1 : 1;
+            if (va > vb) return asc ? 1 : -1;
+            return 0;
+        });
+
+        rows.forEach(r => tbody.appendChild(r));
+    });
+});
+</script>
+{% endblock %}

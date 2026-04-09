@@ -1,0 +1,262 @@
+{% extends "leads/email_base.html" %}
+{% load humanize %}
+
+{% block title %}Lead Lists - SalesHunter v2{% endblock %}
+
+{% block email_extra_css %}
+<style>
+  .upload-area{border:2px dashed var(--border);border-radius:10px;padding:20px;text-align:center;cursor:pointer;transition:all .15s;margin-top:10px;}
+  .upload-area:hover{border-color:var(--blue);background:var(--blue-bg);}
+  .upload-area.dragover{border-color:var(--green);background:var(--green-bg);}
+  .upload-area input[type="file"]{display:none;}
+  .upload-area .filename{font-size:12px;color:var(--green);font-weight:600;margin-top:6px;display:none;}
+
+  .top-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
+  @media(max-width:760px){.top-grid{grid-template-columns:1fr;}}
+
+  .tab-bar{display:flex;gap:2px;margin-bottom:12px;border-bottom:1px solid var(--border);padding-bottom:0;}
+  .tab-btn{background:none;border:none;color:var(--text-dim);font-size:13px;font-weight:600;padding:8px 16px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .12s;}
+  .tab-btn.active{color:var(--blue);border-bottom-color:var(--blue);}
+  .tab-pane{display:none;}
+  .tab-pane.active{display:block;}
+
+  .field-label{font-size:12px;color:var(--text-dim);display:block;margin-bottom:4px;}
+  .manual-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;}
+</style>
+{% endblock %}
+
+{% block email_content %}
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+  <h2>Lead Lists</h2>
+</div>
+
+<!-- Top Row: Create + Upload side by side -->
+<div class="top-grid">
+
+  <!-- Left: Create New Lead List -->
+  <div class="card" style="display:flex;flex-direction:column;">
+    <h3 style="margin-bottom:14px;">Create New Lead List</h3>
+    <form method="post" style="display:flex;flex-direction:column;gap:10px;flex:1;">
+      {% csrf_token %}
+      <div>
+        <label class="field-label">List Name</label>
+        <input type="text" name="name" placeholder="e.g. UAE VoIP Providers" required style="width:100%;">
+      </div>
+      <div>
+        <label class="field-label">Description</label>
+        <input type="text" name="description" placeholder="Optional description" style="width:100%;">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 80px;gap:8px;">
+        <div>
+          <label class="field-label">Country</label>
+          <select name="country" style="width:100%;">
+            <option value="">All</option>
+            {% for c in countries %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="field-label">Lead Type</label>
+          <select name="lead_type" style="width:100%;">
+            <option value="">All</option>
+            {% for val, label in lead_types %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="field-label">Min Score</label>
+          <input type="number" name="min_score" value="40" style="width:100%;">
+        </div>
+      </div>
+      <div style="margin-top:auto;padding-top:6px;">
+        <button type="submit" class="btn btn-blue" style="width:100%;">Create List</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Right: Upload CSV / Manual Entry (tabbed) -->
+  <div class="card">
+    <div class="tab-bar">
+      <button class="tab-btn active" data-tab="csv-tab">Upload CSV</button>
+      <button class="tab-btn" data-tab="manual-tab">Add Manually</button>
+    </div>
+
+    <!-- CSV Tab -->
+    <div class="tab-pane active" id="csv-tab">
+      <form method="post" action="{% url 'email_leads_upload' %}" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div>
+          <label class="field-label">Select Lead List</label>
+          <select name="lead_list" required id="csv-list-select" style="width:100%;">
+            <option value="">-- Choose a list --</option>
+            {% for ll in lead_lists %}
+            <option value="{{ ll.pk }}">{{ ll.name }} ({{ ll.leads.count }} leads)</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <label class="upload-area" id="upload-area" for="csv-file-input">
+          <div style="font-size:28px;margin-bottom:6px;">&#128196;</div>
+          <div style="font-size:13px;color:var(--text-muted);">Click to upload CSV or drag &amp; drop</div>
+          <div style="font-size:11px;color:var(--text-dim);margin-top:4px;">Supported: company_name, company_domain, contact_name, email, phone, website, country, city, lead_type, source, score</div>
+          <div class="filename" id="csv-filename"></div>
+          <input type="file" name="csv_file" accept=".csv" id="csv-file-input" required>
+        </label>
+
+        <div style="margin-top:12px;display:flex;gap:10px;align-items:center;">
+          <button type="submit" class="btn btn-green" id="upload-btn" disabled>Upload &amp; Import</button>
+          <span style="font-size:11px;color:var(--text-dim);" id="upload-hint">Select a list and CSV file first</span>
+        </div>
+      </form>
+    </div>
+
+    <!-- Manual Entry Tab -->
+    <div class="tab-pane" id="manual-tab">
+      <form method="post" action="{% url 'email_leads_add_manual' %}">
+        {% csrf_token %}
+        <div style="margin-bottom:10px;">
+          <label class="field-label">Select Lead List</label>
+          <select name="lead_list" required style="width:100%;">
+            <option value="">-- Choose a list --</option>
+            {% for ll in lead_lists %}
+            <option value="{{ ll.pk }}">{{ ll.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="manual-grid">
+          <div>
+            <label class="field-label">Company Name</label>
+            <input type="text" name="company_name" placeholder="Acme Corp" style="width:100%;">
+          </div>
+          <div>
+            <label class="field-label">Domain *</label>
+            <input type="text" name="company_domain" placeholder="acme.com" required style="width:100%;">
+          </div>
+          <div>
+            <label class="field-label">Contact Name</label>
+            <input type="text" name="contact_name" placeholder="John Doe" style="width:100%;">
+          </div>
+          <div>
+            <label class="field-label">Email</label>
+            <input type="email" name="contact_email" placeholder="john@acme.com" style="width:100%;">
+          </div>
+          <div>
+            <label class="field-label">Phone</label>
+            <input type="text" name="contact_phone" placeholder="+1 234 567 890" style="width:100%;">
+          </div>
+          <div>
+            <label class="field-label">Country</label>
+            <input type="text" name="country" placeholder="USA" style="width:100%;">
+          </div>
+          <div>
+            <label class="field-label">City</label>
+            <input type="text" name="city" placeholder="New York" style="width:100%;">
+          </div>
+          <div>
+            <label class="field-label">Lead Type</label>
+            <select name="lead_type" style="width:100%;">
+              {% for val, label in lead_types %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <div style="margin-top:12px;">
+          <button type="submit" class="btn btn-blue" style="width:100%;">Add Lead to List</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+</div><!-- /top-grid -->
+
+<!-- Existing Lists as Cards -->
+{% if lead_lists %}
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;">
+  {% for ll in lead_lists %}
+  <div class="card" style="padding:0;overflow:hidden;">
+    <div style="padding:16px 18px 12px;display:flex;align-items:center;justify-content:space-between;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:20px;">&#128101;</span>
+        <span style="font-size:15px;font-weight:700;color:var(--text);">{{ ll.name }}</span>
+      </div>
+      <form method="post" action="{% url 'email_leads_delete' ll.pk %}" style="display:inline;" onsubmit="return confirm('Delete this list?');">
+        {% csrf_token %}
+        <button type="submit" style="background:none;border:none;cursor:pointer;font-size:16px;color:var(--red);padding:4px;" title="Delete">&#128465;</button>
+      </form>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;padding:0 14px 14px;">
+      <div style="text-align:center;padding:10px 6px;background:var(--blue-bg);border-radius:8px;margin:0 3px;">
+        <div style="font-size:22px;font-weight:800;color:var(--blue);">{{ ll.total_leads|intcomma }}</div>
+        <div style="font-size:10px;font-weight:600;color:var(--blue);text-transform:uppercase;letter-spacing:0.3px;">Total Leads</div>
+      </div>
+      <div style="text-align:center;padding:10px 6px;background:var(--green-bg);border-radius:8px;margin:0 3px;">
+        <div style="font-size:22px;font-weight:800;color:var(--green);">{{ ll.processed|intcomma }}</div>
+        <div style="font-size:10px;font-weight:600;color:var(--green);text-transform:uppercase;letter-spacing:0.3px;">Processed</div>
+      </div>
+      <div style="text-align:center;padding:10px 6px;background:var(--orange-bg);border-radius:8px;margin:0 3px;">
+        <div style="font-size:22px;font-weight:800;color:var(--orange);">{{ ll.unprocessed|intcomma }}</div>
+        <div style="font-size:10px;font-weight:600;color:var(--orange);text-transform:uppercase;letter-spacing:0.3px;">Unprocessed</div>
+      </div>
+    </div>
+
+    <a href="{% url 'email_leads_detail' ll.pk %}" style="display:flex;align-items:center;justify-content:center;gap:6px;padding:12px;border-top:1px solid var(--border);color:var(--text-muted);font-size:13px;font-weight:500;text-decoration:none;transition:all .12s;">
+      <span style="font-size:14px;">&#128065;</span> View Leads
+    </a>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card" style="text-align:center;padding:40px;color:var(--text-dim);">No lead lists yet. Create one above or upload a CSV.</div>
+{% endif %}
+
+<script>
+  /* ── CSV upload logic ── */
+  var fileInput  = document.getElementById('csv-file-input');
+  var uploadArea = document.getElementById('upload-area');
+  var filenameEl = document.getElementById('csv-filename');
+  var uploadBtn  = document.getElementById('upload-btn');
+  var uploadHint = document.getElementById('upload-hint');
+  var listSelect = document.getElementById('csv-list-select');
+
+  function checkReady() {
+    if (fileInput.files.length > 0 && listSelect.value) {
+      uploadBtn.disabled = false;
+      uploadHint.textContent = 'Ready to import';
+      uploadHint.style.color = 'var(--green)';
+    } else {
+      uploadBtn.disabled = true;
+      uploadHint.textContent = 'Select a list and CSV file first';
+      uploadHint.style.color = 'var(--text-dim)';
+    }
+  }
+  fileInput.addEventListener('change', function() {
+    if (this.files.length > 0) {
+      filenameEl.textContent = this.files[0].name + ' (' + (this.files[0].size / 1024).toFixed(1) + ' KB)';
+      filenameEl.style.display = 'block';
+    }
+    checkReady();
+  });
+  listSelect.addEventListener('change', checkReady);
+  uploadArea.addEventListener('dragover', function(e) { e.preventDefault(); this.classList.add('dragover'); });
+  uploadArea.addEventListener('dragleave', function() { this.classList.remove('dragover'); });
+  uploadArea.addEventListener('drop', function(e) {
+    e.preventDefault(); this.classList.remove('dragover');
+    if (e.dataTransfer.files.length > 0) {
+      fileInput.files = e.dataTransfer.files;
+      filenameEl.textContent = e.dataTransfer.files[0].name;
+      filenameEl.style.display = 'block';
+      checkReady();
+    }
+  });
+
+  /* ── Tab switching ── */
+  document.querySelectorAll('.tab-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+      document.querySelectorAll('.tab-pane').forEach(function(p) { p.classList.remove('active'); });
+      btn.classList.add('active');
+      document.getElementById(btn.dataset.tab).classList.add('active');
+    });
+  });
+</script>
+{% endblock %}

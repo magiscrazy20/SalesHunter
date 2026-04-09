@@ -1,0 +1,67 @@
+{% extends "leads/master/base.html" %}
+{% block title %}Form Automation - Lead Master{% endblock %}
+{% block form_page_title %}Form Automation{% endblock %}
+
+
+{% block form_content %}
+{% if entities %}
+<div class="stats" style="margin-bottom:20px;">
+    <div class="stat-card"><div class="num">{{ entities|length }}</div><div class="label">Entities</div></div>
+</div>
+
+<!-- Entity cards -->
+<div class="country-grid" style="margin-bottom:24px;">
+    {% for entity in entities %}
+    <a href="{% url 'master_form_automation_entity' entity.company %}" class="country-card" data-title="{{ entity.company }}" data-detail='[["Company","{{ entity.company }}"],["Email","{{ entity.email }}"],["Phone","{{ entity.phone }}"],["Total Leads","{{ entity.stats.total }}"],["Success","{{ entity.stats.success }}"],["Failed","{{ entity.stats.failed }}"],["Running","{{ entity.stats.running }}"]]'>
+        <div class="country-name">{{ entity.company }}</div>
+        <div style="margin-top:8px;font-size:11px;color:var(--text-dim);">{{ entity.email }}</div>
+        <div style="margin-top:8px;display:flex;gap:8px;">
+            <span class="badge badge-green">{{ entity.stats.success }}</span>
+            <span class="badge" style="background:#7f1d1d;color:#fca5a5;">{{ entity.stats.failed }}</span>
+            <span class="badge" style="background:#422006;color:#fbbf24;">{{ entity.stats.running }}</span>
+            <span style="color:var(--text-dim);font-size:10px;align-self:center;">/ {{ entity.stats.total }} total</span>
+        </div>
+    </a>
+    {% endfor %}
+</div>
+
+<!-- Overall charts -->
+<h3 style="color:var(--text);font-size:15px;margin-bottom:12px;">Overall Progress by Entity</h3>
+<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:20px;">
+    <canvas id="entityBarChart" height="80"></canvas>
+</div>
+
+{% else %}
+<div class="empty-state">
+    <p style="font-size:36px;margin-bottom:8px;">&#128221;</p>
+    <p>No entities configured.</p>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block form_extra_js %}
+{% if entities %}
+<script>
+const eData = JSON.parse('{{ entities_json|escapejs }}');
+new Chart(document.getElementById('entityBarChart'), {
+    type: 'bar',
+    data: {
+        labels: eData.map(e => e.name),
+        datasets: [
+            { label: 'Success', data: eData.map(e => e.success), backgroundColor: '#4ade80', borderRadius: 4 },
+            { label: 'Failed', data: eData.map(e => e.failed), backgroundColor: '#f87171', borderRadius: 4 },
+            { label: 'Running', data: eData.map(e => e.running), backgroundColor: '#fbbf24', borderRadius: 4 },
+        ]
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: 'top', labels: { color: '#94a3b8', padding: 16, font: {size: 11} } } },
+        scales: {
+            y: { stacked: true, beginAtZero: true, ticks: { color: '#64748b' }, grid: { color: '#1e293b33' } },
+            x: { stacked: true, ticks: { color: '#94a3b8', font: {size: 10} }, grid: { display: false } }
+        }
+    }
+});
+</script>
+{% endif %}
+{% endblock %}

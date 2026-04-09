@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% load humanize leads_extras %}
+
+{% block title %}Leads ({{ total_count }}) - SalesHunter v2{% endblock %}
+
+{% block content %}
+<div class="sec">
+  <div class="sec-title">Leads <span style="color:var(--text-dim);font-size:14px;font-weight:400;">{{ total_count|intcomma }} total</span></div>
+
+  <!-- Filters -->
+  <div class="card">
+    <form method="get" style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;">
+      <input type="text" name="q" value="{{ filters.q }}" placeholder="Search company, email..." style="flex:1;min-width:200px;">
+      <select name="country">
+        <option value="">All Countries</option>
+        {% for c in countries %}<option value="{{ c }}" {% if filters.country == c %}selected{% endif %}>{{ c }}</option>{% endfor %}
+      </select>
+      <select name="lead_type">
+        <option value="">All Types</option>
+        {% for val, label in lead_types %}<option value="{{ val }}" {% if filters.lead_type == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+      <select name="source">
+        <option value="">All Sources</option>
+        {% for val, label in sources %}<option value="{{ val }}" {% if filters.source == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+      <select name="status">
+        <option value="">All Status</option>
+        <option value="not_contacted" {% if filters.status == 'not_contacted' %}selected{% endif %}>Not Contacted</option>
+        <option value="replied" {% if filters.status == 'replied' %}selected{% endif %}>Replied</option>
+        <option value="interested" {% if filters.status == 'interested' %}selected{% endif %}>Interested</option>
+        <option value="closed" {% if filters.status == 'closed' %}selected{% endif %}>Closed</option>
+      </select>
+      <input type="number" name="min_score" value="{{ filters.min_score }}" placeholder="Min Score" style="width:100px;">
+      <button type="submit" class="btn btn-blue">Filter</button>
+      <a href="{% url 'lead_list' %}" class="btn btn-outline">Clear</a>
+    </form>
+  </div>
+
+  <!-- Lead Table -->
+  <div class="card" style="overflow-x:auto;">
+    <table>
+      <thead>
+        <tr>
+          <th>Company</th><th>Domain</th><th>Contact</th><th>Country</th>
+          <th>Type</th><th>Source</th><th>Score</th><th>Stage</th><th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for lead in leads %}
+      <tr>
+        <td><a href="{% url 'lead_detail' lead.pk %}" style="color:var(--text);font-weight:600;">{{ lead.company_name }}</a></td>
+        <td style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--cyan);">{{ lead.company_domain }}</td>
+        <td>
+          <div style="font-size:12px;">{{ lead.contact_name }}</div>
+          <div style="font-size:11px;color:var(--text-dim);">{{ lead.contact_email }}</div>
+        </td>
+        <td>{{ lead.country }}{% if lead.city %}<br><span style="font-size:11px;color:var(--text-dim);">{{ lead.city }}</span>{% endif %}</td>
+        <td><span class="badge badge-blue">{{ lead.get_lead_type_display }}</span></td>
+        <td style="font-size:11px;">{{ lead.get_source_display }}</td>
+        <td style="font-family:'JetBrains Mono',monospace;font-weight:700;{% if lead.score >= 70 %}color:var(--green){% elif lead.score >= 40 %}color:var(--yellow){% else %}color:var(--red){% endif %}">{{ lead.score }}</td>
+        <td style="text-align:center;">
+          {% if lead.sequence_stage > 0 %}
+          <span style="font-family:'JetBrains Mono',monospace;font-size:12px;">{{ lead.sequence_stage }}/4</span>
+          {% else %}&mdash;{% endif %}
+        </td>
+        <td>
+          {% if lead.closed %}<span class="badge badge-green">Closed</span>
+          {% elif lead.interested %}<span class="badge badge-orange">Interested</span>
+          {% elif lead.replied %}<span class="badge badge-blue">Replied</span>
+          {% elif lead.email_sent or lead.form_filled %}<span class="badge" style="background:var(--purple-bg);color:var(--purple);">Contacted</span>
+          {% else %}<span class="badge" style="background:var(--surface2);color:var(--text-dim);">New</span>{% endif %}
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="9" style="text-align:center;color:var(--text-dim);padding:40px;">No leads match your filters.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

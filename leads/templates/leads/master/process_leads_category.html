@@ -1,0 +1,37 @@
+{% extends "leads/master/base.html" %}
+{% block title %}{{ category }} - Process Leads{% endblock %}
+{% block form_page_title %}{{ category }} — {{ total }} Leads{% endblock %}
+
+{% block form_content %}
+<div class="search-panel" style="padding:12px 24px;">
+    <a href="{% url 'master_process_leads' %}" style="color:var(--purple);text-decoration:none;font-size:13px;">&#8592; All Categories</a>
+</div>
+
+<div class="stats">
+    <div class="stat-card"><div class="num">{{ total }}</div><div class="label">Total Leads</div></div>
+    <div class="stat-card"><div class="num">{{ countries|length }}</div><div class="label">Countries</div></div>
+</div>
+
+{% if countries %}
+<div class="country-grid">
+    {% for c in countries %}
+    <a href="{% url 'master_process_leads_country' c.country %}?cat={{ category|urlencode }}" class="country-card" data-title="{{ c.country }}" data-detail='[["Country","{{ c.country }}"],["Category","{{ category }}"],["Leads","{{ c.count }}"],["Click","View regions"]]'>
+        <div class="country-name">{{ c.country }}</div>
+        <div class="country-count">{{ c.count }} leads</div>
+    </a>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state"><p>No country data for {{ category }}.</p></div>
+{% endif %}
+{% endblock %}
+
+{% block form_extra_js %}
+<style>
+.country-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-top: 16px; }
+.country-card { display: block; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; text-decoration: none; transition: all 0.15s; }
+.country-card:hover { border-color: var(--purple); background: var(--bg); transform: translateY(-2px); }
+.country-name { font-size: 16px; font-weight: 600; color: var(--text); }
+.country-count { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+</style>
+{% endblock %}

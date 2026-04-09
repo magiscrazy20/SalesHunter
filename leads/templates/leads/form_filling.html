@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% load humanize leads_extras %}
+
+{% block title %}Form Filling - SalesHunter v2{% endblock %}
+
+{% block content %}
+<div class="sec">
+  <div class="sec-title">Contact Form Filling</div>
+</div>
+
+<!-- Stats -->
+<div class="stats-row">
+  <div class="stat"><div class="num" style="color:var(--blue)">{{ has_form|intcomma }}</div><div class="lbl">Have Contact Form</div></div>
+  <div class="stat"><div class="num" style="color:var(--red)">{{ no_form|intcomma }}</div><div class="lbl">No Form Found</div></div>
+  <div class="stat"><div class="num" style="color:var(--green)">{{ forms_filled|intcomma }}</div><div class="lbl">Forms Filled</div></div>
+  <div class="stat"><div class="num" style="color:var(--orange)">{{ forms_pending|intcomma }}</div><div class="lbl">Pending Fill</div></div>
+  <div class="stat"><div class="num" style="color:var(--purple)">{{ forms_replied|intcomma }}</div><div class="lbl">Replied</div></div>
+  <div class="stat"><div class="num" style="color:var(--yellow)">{{ forms_interested|intcomma }}</div><div class="lbl">Interested</div></div>
+  <div class="stat"><div class="num" style="color:var(--green)">{{ forms_closed|intcomma }}</div><div class="lbl">Closed</div></div>
+  <div class="stat"><div class="num" style="color:var(--cyan)">{{ form_reply_rate|floatformat:1 }}%</div><div class="lbl">Reply Rate</div></div>
+</div>
+
+<div class="alert alert-blue">
+  Contact forms go straight to the company's sales team inbox. They bypass spam filters and look like genuine inbound inquiries. Reply rates from forms are 2-5x higher than cold email.
+</div>
+
+<div class="grid-2">
+  <!-- By Country -->
+  <div class="card">
+    <h3>Form Fills by Country</h3>
+    <table>
+      <thead><tr><th>Country</th><th>Filled</th><th>Replied</th><th>Closed</th><th>Reply %</th></tr></thead>
+      <tbody>
+      {% for c in by_country %}
+      <tr>
+        <td style="color:var(--text);font-weight:600;">{{ c.country }}</td>
+        <td>{{ c.total|intcomma }}</td>
+        <td>{{ c.replied_count }}</td>
+        <td style="color:var(--green);font-weight:700;">{{ c.closed_count }}</td>
+        <td style="font-family:'JetBrains Mono',monospace;">{% if c.total %}{{ c.replied_count|percentage:c.total }}{% else %}0%{% endif %}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5" style="text-align:center;color:var(--text-dim);">No form data yet</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- By Lead Type -->
+  <div class="card">
+    <h3>Form Fills by Lead Type</h3>
+    <table>
+      <thead><tr><th>Type</th><th>Filled</th><th>Replied</th><th>Closed</th><th>Reply %</th></tr></thead>
+      <tbody>
+      {% for t in by_lead_type %}
+      <tr>
+        <td style="color:var(--text);font-weight:600;">{{ t.lead_type }}</td>
+        <td>{{ t.total|intcomma }}</td>
+        <td>{{ t.replied_count }}</td>
+        <td style="color:var(--green);font-weight:700;">{{ t.closed_count }}</td>
+        <td style="font-family:'JetBrains Mono',monospace;">{% if t.total %}{{ t.replied_count|percentage:t.total }}{% else %}0%{% endif %}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5" style="text-align:center;color:var(--text-dim);">No form data yet</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Pending Fills -->
+<div class="sec" style="margin-top:24px;">
+  <div class="sec-title">Pending Form Fills (Qualified, Has Form, Not Yet Filled)</div>
+  <div class="card" style="overflow-x:auto;">
+    <table>
+      <thead><tr><th>Company</th><th>Domain</th><th>Website</th><th>Country</th><th>Type</th><th>Score</th></tr></thead>
+      <tbody>
+      {% for lead in pending_fills %}
+      <tr>
+        <td style="color:var(--text);font-weight:600;">{{ lead.company_name }}</td>
+        <td style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--cyan);">{{ lead.company_domain }}</td>
+        <td style="font-size:11px;"><a href="{{ lead.website_url }}" target="_blank">{{ lead.website_url|truncatechars:40 }}</a></td>
+        <td>{{ lead.country }}</td>
+        <td><span class="badge badge-blue">{{ lead.get_lead_type_display }}</span></td>
+        <td style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--green);">{{ lead.score }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6" style="text-align:center;color:var(--text-dim);">No pending form fills</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Recent Form Submissions -->
+<div class="sec" style="margin-top:24px;">
+  <div class="sec-title">Recent Form Submissions</div>
+  <div class="card" style="overflow-x:auto;">
+    <table>
+      <thead><tr><th>Company</th><th>Domain</th><th>Country</th><th>Type</th><th>Replied</th><th>Interested</th><th>Status</th></tr></thead>
+      <tbody>
+      {% for lead in recent_forms %}
+      <tr>
+        <td><a href="{% url 'lead_detail' lead.pk %}" style="color:var(--text);font-weight:600;">{{ lead.company_name }}</a></td>
+        <td style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--cyan);">{{ lead.company_domain }}</td>
+        <td>{{ lead.country }}</td>
+        <td><span class="badge badge-blue">{{ lead.get_lead_type_display }}</span></td>
+        <td>{% if lead.replied %}<span style="color:var(--green)">&#10003;</span>{% else %}&mdash;{% endif %}</td>
+        <td>{% if lead.interested %}<span style="color:var(--green)">&#10003;</span>{% else %}&mdash;{% endif %}</td>
+        <td>
+          {% if lead.closed %}<span class="badge badge-green">Closed</span>
+          {% elif lead.interested %}<span class="badge badge-orange">Interested</span>
+          {% elif lead.replied %}<span class="badge badge-blue">Replied</span>
+          {% else %}<span class="badge" style="background:var(--surface2);color:var(--text-dim);">Sent</span>{% endif %}
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="7" style="text-align:center;color:var(--text-dim);">No form submissions yet</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

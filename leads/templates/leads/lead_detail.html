@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block title %}{{ lead.company_name }} - SalesHunter v2{% endblock %}
+
+{% block content %}
+<div style="margin-bottom:16px;">
+  <a href="{% url 'lead_list' %}" style="color:var(--text-dim);font-size:13px;">&larr; Back to Leads</a>
+</div>
+
+<div class="grid-2">
+  <!-- Company Info -->
+  <div class="card">
+    <h3 style="color:var(--green);">{{ lead.company_name }}</h3>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--cyan);margin-bottom:16px;">{{ lead.company_domain }}</div>
+
+    <table>
+      <tr><td style="color:var(--text-dim);width:140px;">Contact</td><td style="color:var(--text);">{{ lead.contact_name|default:"—" }}</td></tr>
+      <tr><td style="color:var(--text-dim);">Email</td><td>{{ lead.contact_email|default:"—" }}</td></tr>
+      <tr><td style="color:var(--text-dim);">Phone</td><td>{{ lead.contact_phone|default:"—" }}</td></tr>
+      <tr><td style="color:var(--text-dim);">Website</td><td>{% if lead.website_url %}<a href="{{ lead.website_url }}" target="_blank">{{ lead.website_url }}</a>{% else %}—{% endif %}</td></tr>
+      <tr><td style="color:var(--text-dim);">Has Contact Form</td><td>{% if lead.has_contact_form %}<span style="color:var(--green);">Yes</span>{% else %}<span style="color:var(--red);">No</span>{% endif %}</td></tr>
+      <tr><td style="color:var(--text-dim);">Country</td><td style="color:var(--text);">{{ lead.country }}</td></tr>
+      <tr><td style="color:var(--text-dim);">City</td><td>{{ lead.city|default:"—" }}</td></tr>
+      <tr><td style="color:var(--text-dim);">Type</td><td><span class="badge badge-blue">{{ lead.get_lead_type_display }}</span></td></tr>
+      <tr><td style="color:var(--text-dim);">Source</td><td>{{ lead.get_source_display }}</td></tr>
+      <tr><td style="color:var(--text-dim);">Keyword</td><td style="font-family:'JetBrains Mono',monospace;font-size:12px;">{{ lead.keyword_used|default:"—" }}</td></tr>
+      <tr><td style="color:var(--text-dim);">Company Size</td><td>{{ lead.get_company_size_display|default:"—" }}</td></tr>
+      <tr><td style="color:var(--text-dim);">Score</td><td style="font-size:20px;font-weight:800;{% if lead.score >= 70 %}color:var(--green){% elif lead.score >= 40 %}color:var(--yellow){% else %}color:var(--red){% endif %}">{{ lead.score }}/100</td></tr>
+      <tr><td style="color:var(--text-dim);">Added</td><td>{{ lead.created_at|date:"M d, Y H:i" }}</td></tr>
+    </table>
+  </div>
+
+  <!-- Outreach Status -->
+  <div>
+    <div class="card">
+      <h3>Outreach Status</h3>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div class="stat" style="border-top:3px solid {% if lead.email_sent %}var(--green){% else %}var(--border){% endif %};">
+          <div class="num" style="font-size:18px;">{% if lead.email_sent %}Sent{% else %}Pending{% endif %}</div>
+          <div class="lbl">Email</div>
+        </div>
+        <div class="stat" style="border-top:3px solid {% if lead.form_filled %}var(--green){% else %}var(--border){% endif %};">
+          <div class="num" style="font-size:18px;">{% if lead.form_filled %}Filled{% else %}Pending{% endif %}</div>
+          <div class="lbl">Contact Form</div>
+        </div>
+        <div class="stat" style="border-top:3px solid {% if lead.replied %}var(--green){% else %}var(--border){% endif %};">
+          <div class="num" style="font-size:18px;">{% if lead.replied %}Yes{% else %}No{% endif %}</div>
+          <div class="lbl">Replied</div>
+        </div>
+        <div class="stat" style="border-top:3px solid {% if lead.interested %}var(--orange){% else %}var(--border){% endif %};">
+          <div class="num" style="font-size:18px;">{% if lead.interested %}Yes{% else %}No{% endif %}</div>
+          <div class="lbl">Interested</div>
+        </div>
+      </div>
+
+      {% if lead.closed %}
+      <div class="alert alert-green" style="margin-top:12px;">
+        <strong>CLOSED DEAL</strong> &mdash; ${{ lead.revenue_monthly|intcomma }}/month
+      </div>
+      {% endif %}
+
+      <div style="margin-top:12px;">
+        <strong style="font-size:13px;">Sequence Stage:</strong>
+        <div style="display:flex;gap:6px;margin-top:8px;">
+          {% for i in "1234" %}
+          <div style="flex:1;height:6px;border-radius:3px;{% if lead.sequence_stage >= forloop.counter %}background:var(--green);{% else %}background:var(--surface2);{% endif %}"></div>
+          {% endfor %}
+        </div>
+        <div style="font-size:11px;color:var(--text-dim);margin-top:4px;">Stage {{ lead.sequence_stage }}/4</div>
+      </div>
+    </div>
+
+    {% if lead.next_followup_at %}
+    <div class="alert alert-blue">
+      Next follow-up: {{ lead.next_followup_at|date:"M d, Y H:i" }}
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Outreach Logs -->
+<div class="sec" style="margin-top:24px;">
+  <div class="sec-title">Outreach History</div>
+  <div class="card" style="overflow-x:auto;">
+    <table>
+      <thead><tr><th>Date</th><th>Channel</th><th>Stage</th><th>Status</th><th>Subject</th><th>Domain</th></tr></thead>
+      <tbody>
+      {% for log in outreach_logs %}
+      <tr>
+        <td>{{ log.sent_at|date:"M d, Y H:i" }}</td>
+        <td><span class="badge {% if log.channel == 'email' %}badge-blue{% else %}badge-green{% endif %}">{{ log.get_channel_display }}</span></td>
+        <td style="text-align:center;">{{ log.sequence_stage }}</td>
+        <td>
+          {% if log.status == 'replied' %}<span class="badge badge-green">{{ log.status }}</span>
+          {% elif log.status == 'opened' %}<span class="badge badge-blue">{{ log.status }}</span>
+          {% elif log.status == 'bounced' or log.status == 'failed' %}<span class="badge badge-red">{{ log.status }}</span>
+          {% else %}<span class="badge" style="background:var(--surface2);color:var(--text-dim);">{{ log.status }}</span>{% endif %}
+        </td>
+        <td style="font-size:12px;">{{ log.subject|truncatechars:60 }}</td>
+        <td style="font-family:'JetBrains Mono',monospace;font-size:11px;">{{ log.sending_domain }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6" style="text-align:center;color:var(--text-dim);">No outreach yet</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

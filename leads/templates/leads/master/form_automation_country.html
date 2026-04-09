@@ -1,0 +1,90 @@
+{% extends "leads/master/base.html" %}
+{% block title %}{{ entity.company }} — {{ country }} - Form Automation{% endblock %}
+{% block form_page_title %}{{ entity.company }} — {{ country }}{% endblock %}
+
+{% block form_content %}
+<div class="search-panel" style="padding:14px 24px;">
+    <a href="{% url 'master_form_automation' %}" style="color:var(--purple);text-decoration:none;font-size:13px;">All Entities</a>
+    <span style="color:var(--text-dim);margin:0 6px;">&#8250;</span>
+    <a href="{% url 'master_form_automation_entity' entity.company %}" style="color:var(--purple);text-decoration:none;font-size:13px;">{{ entity.company }}</a>
+    {% if category %}
+    <span style="color:var(--text-dim);margin:0 6px;">&#8250;</span>
+    <a href="{% url 'master_form_automation_cat' entity.company category %}" style="color:var(--purple);text-decoration:none;font-size:13px;">{{ category }}</a>
+    {% endif %}
+    <span style="color:var(--text-dim);margin:0 6px;">&#8250;</span>
+    <strong style="color:var(--text);">{{ country }}</strong>
+</div>
+
+<div class="stats">
+    <div class="stat-card"><div class="num" id="totalCount">{{ stats.total }}</div><div class="label">Total Leads</div></div>
+    <div class="stat-card"><div class="num" id="successCount" style="color:#4ade80;">{{ stats.success }}</div><div class="label">Success</div></div>
+    <div class="stat-card"><div class="num" id="failedCount" style="color:#f87171;">{{ stats.failed }}</div><div class="label">Failed</div></div>
+    <div class="stat-card"><div class="num" id="runningCount" style="color:#fbbf24;">{{ stats.running }}</div><div class="label">Running</div></div>
+    <div class="stat-card" style="display:flex;align-items:center;">
+        <a href="{% url 'master_form_automation_country_all' entity.company country %}{% if category %}?cat={{ category|urlencode }}{% endif %}" class="btn btn-primary" style="text-decoration:none;white-space:nowrap;">&#128065; View All Leads</a>
+    </div>
+</div>
+
+{% include "leads/master/includes/chart_progress.html" with chart_id="country" stats_json=stats_json %}
+
+{% if regions %}
+<h3 style="color:var(--text);font-size:15px;margin-bottom:12px;">Regions / States</h3>
+<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:20px;">
+    <canvas id="regionsBarChart" height="80"></canvas>
+</div>
+
+<div class="country-grid">
+    {% for r in regions %}
+    <a href="{% url 'master_form_automation_region' entity.company country r.name %}{% if category %}?cat={{ category|urlencode }}{% endif %}" class="country-card">
+        <div class="country-name">{{ r.name }}</div>
+        <div style="margin-top:6px;display:flex;gap:6px;">
+            <span class="badge badge-green">{{ r.success }}</span>
+            <span class="badge" style="background:#7f1d1d;color:#fca5a5;">{{ r.failed }}</span>
+            <span style="color:var(--text-dim);font-size:10px;align-self:center;">/ {{ r.total }}</span>
+        </div>
+    </a>
+    {% endfor %}
+</div>
+{% endif %}
+{% endblock %}
+
+{% block form_extra_js %}
+<script>
+const rData = JSON.parse('{{ regions_json|escapejs }}');
+if (rData.length > 0) {
+    new Chart(document.getElementById('regionsBarChart'), {
+        type: 'bar',
+        data: {
+            labels: rData.map(r => r.name),
+            datasets: [
+                { label: 'Success', data: rData.map(r => r.success), backgroundColor: '#4ade80', borderRadius: 4 },
+                { label: 'Failed', data: rData.map(r => r.failed), backgroundColor: '#f87171', borderRadius: 4 },
+                { label: 'Running', data: rData.map(r => r.running), backgroundColor: '#fbbf24', borderRadius: 4 },
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { position: 'top', labels: { color: '#94a3b8', font: {size: 11} } } },
+            scales: {
+                y: { stacked: true, beginAtZero: true, ticks: { color: '#64748b' }, grid: { color: '#1e293b33' } },
+                x: { stacked: true, ticks: { color: '#94a3b8', font: {size: 10} }, grid: { display: false } }
+            }
+        }
+    });
+}
+// Live poll stats
+const entityName = '{{ entity.company|escapejs }}';
+const country = '{{ country|escapejs }}';
+const category = '{{ category|escapejs }}';
+setInterval(async () => {
+    try {
+        const params = new URLSearchParams({entity: entityName, country, category});
+        const resp = await fetch(`/form/master/api/form-automation/status/?${params}`);
+        const c = (await resp.json()).counts || {};
+        document.getElementById('successCount').textContent = c.success || 0;
+        document.getElementById('failedCount').textContent = c.failed || 0;
+        document.getElementById('runningCount').textContent = c.running || 0;
+    } catch(e) {}
+}, 5000);
+</script>
+{% endblock %}

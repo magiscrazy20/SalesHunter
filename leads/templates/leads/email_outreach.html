@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+{% load humanize leads_extras %}
+
+{% block title %}Email Outreach - SalesHunter v2{% endblock %}
+
+{% block content %}
+<div class="sec">
+  <div class="sec-title">Email Outreach</div>
+</div>
+
+<!-- Stats -->
+<div class="stats-row">
+  <div class="stat"><div class="num" style="color:var(--blue)">{{ emailed|intcomma }}</div><div class="lbl">Emails Sent</div></div>
+  <div class="stat"><div class="num" style="color:var(--orange)">{{ not_emailed|intcomma }}</div><div class="lbl">Pending Send</div></div>
+  <div class="stat"><div class="num" style="color:var(--cyan)">{{ opened|intcomma }}</div><div class="lbl">Opened</div></div>
+  <div class="stat"><div class="num" style="color:var(--purple)">{{ replied|intcomma }}</div><div class="lbl">Replied</div></div>
+  <div class="stat"><div class="num" style="color:var(--yellow)">{{ interested|intcomma }}</div><div class="lbl">Interested</div></div>
+  <div class="stat"><div class="num" style="color:var(--green)">{{ closed|intcomma }}</div><div class="lbl">Closed</div></div>
+  <div class="stat"><div class="num" style="color:var(--cyan)">{{ open_rate|floatformat:1 }}%</div><div class="lbl">Open Rate</div></div>
+  <div class="stat"><div class="num" style="color:var(--orange)">{{ reply_rate|floatformat:1 }}%</div><div class="lbl">Reply Rate</div></div>
+</div>
+
+<!-- ========== CAMPAIGNS ========== -->
+<div class="sec">
+  <div class="sec-title">
+    Email Campaigns
+    <a href="{% url 'campaign_create' %}" class="btn btn-green btn-sm" style="margin-left:auto;">+ New Campaign</a>
+  </div>
+
+  {% if campaigns %}
+  <div class="card" style="overflow-x:auto;">
+    <table>
+      <thead>
+        <tr>
+          <th>Campaign</th><th>Status</th><th>Leads</th><th>Sent</th>
+          <th>Opened</th><th>Replied</th><th>Interested</th><th>Closed</th>
+          <th>Open %</th><th>Reply %</th><th>Daily Limit</th><th>Created</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for c in campaigns %}
+      <tr>
+        <td><a href="{% url 'campaign_detail' c.pk %}" style="color:var(--text);font-weight:700;">{{ c.name }}</a></td>
+        <td>
+          {% if c.status == 'active' %}<span class="badge badge-green">Active</span>
+          {% elif c.status == 'paused' %}<span class="badge badge-orange">Paused</span>
+          {% elif c.status == 'completed' %}<span class="badge badge-blue">Completed</span>
+          {% else %}<span class="badge" style="background:var(--surface2);color:var(--text-dim);">Draft</span>{% endif %}
+        </td>
+        <td>{{ c.leads.count|intcomma }}</td>
+        <td>{{ c.total_sent|intcomma }}</td>
+        <td>{{ c.total_opened|intcomma }}</td>
+        <td style="color:var(--purple);font-weight:700;">{{ c.total_replied|intcomma }}</td>
+        <td>{{ c.total_interested|intcomma }}</td>
+        <td style="color:var(--green);font-weight:700;">{{ c.total_closed|intcomma }}</td>
+        <td style="font-family:'JetBrains Mono',monospace;">{{ c.open_rate }}%</td>
+        <td style="font-family:'JetBrains Mono',monospace;">{{ c.reply_rate }}%</td>
+        <td style="font-family:'JetBrains Mono',monospace;">{{ c.daily_limit }}</td>
+        <td style="font-size:11px;color:var(--text-dim);">{{ c.created_at|date:"M d" }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="card" style="text-align:center;padding:40px;">
+    <div style="font-size:36px;margin-bottom:12px;">&#128231;</div>
+    <div style="font-size:15px;font-weight:600;margin-bottom:8px;">No campaigns yet</div>
+    <div style="font-size:13px;color:var(--text-dim);margin-bottom:16px;">Create your first email campaign to start reaching leads</div>
+    <a href="{% url 'campaign_create' %}" class="btn btn-green">+ Create Campaign</a>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Sequence Breakdown + Follow-ups -->
+<div class="grid-2">
+  <div class="card">
+    <h3>Sequence Stage Breakdown</h3>
+    <div style="display:flex;gap:8px;margin-bottom:16px;">
+      {% for stage in stage_counts %}
+      <div style="flex:1;text-align:center;padding:12px;background:var(--surface2);border-radius:8px;">
+        <div style="font-size:10px;font-weight:700;color:var(--text-dim);text-transform:uppercase;font-family:'JetBrains Mono',monospace;margin-bottom:4px;">
+          {% if stage.sequence_stage == 1 %}Day 1 - Intro
+          {% elif stage.sequence_stage == 2 %}Day 3 - Quality
+          {% elif stage.sequence_stage == 3 %}Day 7 - Proof
+          {% elif stage.sequence_stage == 4 %}Day 14 - Final
+          {% else %}Stage {{ stage.sequence_stage }}{% endif %}
+        </div>
+        <div style="font-size:22px;font-weight:800;color:var(--blue);">{{ stage.count|intcomma }}</div>
+      </div>
+      {% empty %}
+      <div style="flex:1;text-align:center;padding:20px;color:var(--text-dim);">No emails in sequence yet</div>
+      {% endfor %}
+    </div>
+    <div style="font-size:12px;color:var(--text-dim);line-height:1.8;padding:12px;background:var(--surface2);border-radius:8px;font-family:'JetBrains Mono',monospace;">
+      Day 1 &rarr; Intro + USP + free test<br>
+      Day 3 &rarr; Quality angle - "High ASR CLI to [region]"<br>
+      Day 7 &rarr; Social proof - "Carrying X million min"<br>
+      Day 14 &rarr; Breakup - "No pressure, offer open"
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Follow-ups Due Now</h3>
+    <table>
+      <thead><tr><th>Company</th><th>Country</th><th>Stage</th><th>Due</th></tr></thead>
+      <tbody>
+      {% for lead in followup_due %}
+      <tr>
+        <td><a href="{% url 'lead_detail' lead.pk %}" style="color:var(--text);font-weight:600;">{{ lead.company_name }}</a></td>
+        <td>{{ lead.country }}</td>
+        <td style="font-family:'JetBrains Mono',monospace;">{{ lead.sequence_stage }}/4</td>
+        <td style="font-size:11px;color:var(--orange);">{{ lead.next_followup_at|timesince }} ago</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="4" style="text-align:center;color:var(--text-dim);">No follow-ups due</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Performance by Country & Type -->
+<div class="grid-2" style="margin-top:12px;">
+  <div class="card">
+    <h3>Email Performance by Country</h3>
+    <table>
+      <thead><tr><th>Country</th><th>Sent</th><th>Opened</th><th>Replied</th><th>Closed</th><th>Reply %</th></tr></thead>
+      <tbody>
+      {% for c in by_country %}
+      <tr>
+        <td style="color:var(--text);font-weight:600;">{{ c.country }}</td>
+        <td>{{ c.total|intcomma }}</td>
+        <td>{{ c.opened_count }}</td>
+        <td>{{ c.replied_count }}</td>
+        <td style="color:var(--green);font-weight:700;">{{ c.closed_count }}</td>
+        <td style="font-family:'JetBrains Mono',monospace;">{% if c.total %}{{ c.replied_count|percentage:c.total }}{% else %}0%{% endif %}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6" style="text-align:center;color:var(--text-dim);">No email data yet</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3>Email Performance by Lead Type</h3>
+    <table>
+      <thead><tr><th>Type</th><th>Sent</th><th>Replied</th><th>Closed</th><th>Reply %</th></tr></thead>
+      <tbody>
+      {% for t in by_lead_type %}
+      <tr>
+        <td style="color:var(--text);font-weight:600;">{{ t.lead_type }}</td>
+        <td>{{ t.total|intcomma }}</td>
+        <td>{{ t.replied_count }}</td>
+        <td style="color:var(--green);font-weight:700;">{{ t.closed_count }}</td>
+        <td style="font-family:'JetBrains Mono',monospace;">{% if t.total %}{{ t.replied_count|percentage:t.total }}{% else %}0%{% endif %}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5" style="text-align:center;color:var(--text-dim);">No email data yet</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Recent Replies -->
+{% if recent_replies %}
+<div class="sec" style="margin-top:24px;">
+  <div class="sec-title">Recent Replies (Hot Leads)</div>
+  <div class="card" style="overflow-x:auto;">
+    <table>
+      <thead><tr><th>Company</th><th>Domain</th><th>Country</th><th>Type</th><th>Score</th><th>Interested</th><th>Status</th></tr></thead>
+      <tbody>
+      {% for lead in recent_replies %}
+      <tr>
+        <td><a href="{% url 'lead_detail' lead.pk %}" style="color:var(--text);font-weight:600;">{{ lead.company_name }}</a></td>
+        <td style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--cyan);">{{ lead.company_domain }}</td>
+        <td>{{ lead.country }}</td>
+        <td><span class="badge badge-blue">{{ lead.get_lead_type_display }}</span></td>
+        <td style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--green);">{{ lead.score }}</td>
+        <td>{% if lead.interested %}<span style="color:var(--green)">&#10003;</span>{% else %}&mdash;{% endif %}</td>
+        <td>
+          {% if lead.closed %}<span class="badge badge-green">Closed</span>
+          {% elif lead.interested %}<span class="badge badge-orange">Interested</span>
+          {% else %}<span class="badge badge-blue">Replied</span>{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,40 @@
+{% extends "leads/email_base.html" %}
+{% load humanize %}
+
+{% block title %}Email Templates - SalesHunter v2{% endblock %}
+
+{% block email_content %}
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+  <h2>Email Templates</h2>
+  <a href="{% url 'email_template_create' %}" class="btn btn-blue">+ New Template</a>
+</div>
+
+{% if templates %}
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px;">
+  {% for t in templates %}
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+      <h3 style="margin-bottom:0;">{{ t.name }}</h3>
+      <div style="display:flex;gap:6px;">
+        <a href="{% url 'email_template_edit' t.pk %}" class="btn btn-outline btn-sm">Edit</a>
+        <form method="post" action="{% url 'email_template_delete' t.pk %}" onsubmit="return confirm('Delete this template?');" style="display:inline;">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-red btn-sm">Delete</button>
+        </form>
+      </div>
+    </div>
+    <div style="font-size:12px;color:var(--text-dim);margin-bottom:8px;">Subject: <span style="color:var(--text);">{{ t.subject }}</span></div>
+    <div style="font-size:12px;color:var(--text-muted);line-height:1.6;white-space:pre-wrap;background:var(--surface2);padding:12px;border-radius:8px;max-height:160px;overflow:hidden;">{{ t.body|truncatechars:300 }}</div>
+    <div style="font-size:10px;color:var(--text-dim);margin-top:8px;">Created {{ t.created_at|date:"M d, Y" }}</div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card" style="text-align:center;padding:50px;">
+  <div style="font-size:40px;margin-bottom:12px;">&#128196;</div>
+  <div style="font-size:16px;font-weight:600;margin-bottom:8px;">No templates yet</div>
+  <div style="font-size:13px;color:var(--text-dim);margin-bottom:20px;">Create reusable email templates for your campaigns</div>
+  <a href="{% url 'email_template_create' %}" class="btn btn-blue">+ Create Template</a>
+</div>
+{% endif %}
+{% endblock %}

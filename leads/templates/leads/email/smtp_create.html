@@ -1,0 +1,56 @@
+{% extends "leads/email_base.html" %}
+
+{% block title %}Add SMTP - SalesHunter v2{% endblock %}
+
+{% block email_content %}
+<h2 style="margin-bottom:20px;">Add SMTP Connection</h2>
+
+<div class="card">
+  <form method="post" action="{% url 'email_smtp_create' %}">
+    {% csrf_token %}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+      <div>
+        <label style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;">Connection Name</label>
+        <input type="text" name="name" placeholder="e.g. Rozper Main SMTP" style="width:100%;" required>
+      </div>
+      <div>
+        <label style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;">SMTP Host</label>
+        <input type="text" name="host" placeholder="e.g. smtp.gmail.com" style="width:100%;" required>
+      </div>
+      <div>
+        <label style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;">Port</label>
+        <input type="number" name="port" value="587" style="width:100%;">
+      </div>
+      <div>
+        <label style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;">Username</label>
+        <input type="text" name="username" placeholder="SMTP username" style="width:100%;" required>
+      </div>
+      <div>
+        <label style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;">Password</label>
+        <input type="password" name="password" placeholder="SMTP password" style="width:100%;" required>
+      </div>
+      <div>
+        <label style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;">From Email</label>
+        <input type="email" name="from_email" placeholder="sajid@rozper.com" style="width:100%;" required>
+      </div>
+      <div>
+        <label style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;">From Name</label>
+        <input type="text" name="from_name" placeholder="Sajid Kapadia" style="width:100%;">
+      </div>
+      <div>
+        <label style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;">Daily Limit</label>
+        <input type="number" name="daily_limit" value="100" style="width:100%;">
+      </div>
+    </div>
+    <div style="margin-top:16px;">
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-muted);cursor:pointer;">
+        <input type="checkbox" name="use_tls" checked style="accent-color:var(--blue);"> Use TLS
+      </label>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:20px;">
+      <button type="submit" class="btn btn-blue">Save SMTP</button>
+      <a href="{% url 'email_smtp' %}" class="btn btn-outline">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+{% load humanize leads_extras %}
+
+{% block title %}Leads Pipeline - SalesHunter v2{% endblock %}
+
+{% block content %}
+<div class="sec">
+  <div class="sec-title">Leads Pipeline</div>
+</div>
+
+<!-- Stats -->
+<div class="stats-row">
+  <div class="stat"><div class="num" style="color:var(--green)">{{ total|intcomma }}</div><div class="lbl">Total Scraped</div></div>
+  <div class="stat"><div class="num" style="color:var(--blue)">{{ qualified|intcomma }}</div><div class="lbl">Qualified</div></div>
+  <div class="stat"><div class="num" style="color:var(--purple)">{{ contacted|intcomma }}</div><div class="lbl">Contacted</div></div>
+  <div class="stat"><div class="num" style="color:var(--orange)">{{ replied_count|intcomma }}</div><div class="lbl">Replied</div></div>
+  <div class="stat"><div class="num" style="color:var(--yellow)">{{ interested_count|intcomma }}</div><div class="lbl">Interested</div></div>
+  <div class="stat"><div class="num" style="color:var(--green)">{{ closed_count|intcomma }}</div><div class="lbl">Closed Won</div></div>
+  <div class="stat"><div class="num" style="color:var(--green)">${{ total_mrr|intcomma }}</div><div class="lbl">MRR</div></div>
+</div>
+
+<!-- Pipeline Funnel -->
+<div class="card">
+  <h3>Sales Funnel</h3>
+  <div style="max-width:800px;margin:0 auto;">
+    {% for step in funnel %}
+    <div class="funnel-step">
+      <div class="funnel-bar" style="background:{{ step.color }};width:{{ step.pct }}%;min-width:50px;">
+      </div>
+      <div class="funnel-label">{{ step.label }}</div>
+      <div class="funnel-num" style="color:{{ step.color }}">{{ step.count|intcomma }}</div>
+      <div class="funnel-rate">{{ step.pct }}%</div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- Pipeline Stages -->
+<div class="grid-3" style="margin-top:12px;">
+  <div class="card" style="border-top:3px solid var(--cyan);">
+    <h3 style="color:var(--cyan);">New (Not Contacted)</h3>
+    <div style="font-size:36px;font-weight:900;color:var(--cyan);text-align:center;padding:12px 0;">{{ new_leads|intcomma }}</div>
+    <div style="font-size:11px;color:var(--text-dim);text-align:center;">Scraped but not yet emailed or form-filled</div>
+  </div>
+  <div class="card" style="border-top:3px solid var(--blue);">
+    <h3 style="color:var(--blue);">In Sequence</h3>
+    <div style="font-size:36px;font-weight:900;color:var(--blue);text-align:center;padding:12px 0;">{{ in_sequence|intcomma }}</div>
+    <div style="font-size:11px;color:var(--text-dim);text-align:center;">Contacted, awaiting reply, sequence active</div>
+  </div>
+  <div class="card" style="border-top:3px solid var(--purple);">
+    <h3 style="color:var(--purple);">Sequence Complete</h3>
+    <div style="font-size:36px;font-weight:900;color:var(--purple);text-align:center;padding:12px 0;">{{ sequence_done|intcomma }}</div>
+    <div style="font-size:11px;color:var(--text-dim);text-align:center;">All 4 emails sent, no reply</div>
+  </div>
+</div>
+
+<!-- Country Pipeline -->
+<div class="sec" style="margin-top:24px;">
+  <div class="sec-title">Pipeline by Country</div>
+  <div class="card" style="overflow-x:auto;">
+    <table>
+      <thead><tr><th>Country</th><th>Total</th><th>Qualified</th><th>Contacted</th><th>Replied</th><th>Interested</th><th>Closed</th><th>Revenue</th><th>Close %</th></tr></thead>
+      <tbody>
+      {% for c in by_country %}
+      <tr>
+        <td style="color:var(--text);font-weight:700;">{{ c.country }}</td>
+        <td>{{ c.total|intcomma }}</td>
+        <td>{{ c.qualified|intcomma }}</td>
+        <td>{{ c.contacted|intcomma }}</td>
+        <td>{{ c.replied_count }}</td>
+        <td>{{ c.interested_count }}</td>
+        <td style="color:var(--green);font-weight:700;">{{ c.closed_count }}</td>
+        <td style="color:var(--green);font-family:'JetBrains Mono',monospace;">${{ c.revenue|default:0|intcomma }}</td>
+        <td style="font-family:'JetBrains Mono',monospace;">{% if c.total %}{{ c.closed_count|percentage:c.total }}{% else %}0%{% endif %}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="9" style="text-align:center;color:var(--text-dim);">No data yet</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="grid-2" style="margin-top:12px;">
+  <!-- By Lead Type -->
+  <div class="card">
+    <h3>Pipeline by Lead Type</h3>
+    <table>
+      <thead><tr><th>Type</th><th>Total</th><th>Contacted</th><th>Replied</th><th>Closed</th><th>Revenue</th></tr></thead>
+      <tbody>
+      {% for t in by_lead_type %}
+      <tr>
+        <td style="color:var(--text);font-weight:600;">{{ t.lead_type }}</td>
+        <td>{{ t.total|intcomma }}</td>
+        <td>{{ t.contacted|intcomma }}</td>
+        <td>{{ t.replied_count }}</td>
+        <td style="color:var(--green);font-weight:700;">{{ t.closed_count }}</td>
+        <td style="color:var(--green);font-family:'JetBrains Mono',monospace;">${{ t.revenue|default:0|intcomma }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6" style="text-align:center;color:var(--text-dim);">No data yet</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- By Source -->
+  <div class="card">
+    <h3>Pipeline by Source</h3>
+    <table>
+      <thead><tr><th>Source</th><th>Total</th><th>Contacted</th><th>Replied</th><th>Closed</th><th>Reply %</th></tr></thead>
+      <tbody>
+      {% for s in by_source %}
+      <tr>
+        <td style="color:var(--text);font-weight:600;">{{ s.source }}</td>
+        <td>{{ s.total|intcomma }}</td>
+        <td>{{ s.contacted|intcomma }}</td>
+        <td>{{ s.replied_count }}</td>
+        <td style="color:var(--green);font-weight:700;">{{ s.closed_count }}</td>
+        <td style="font-family:'JetBrains Mono',monospace;">{% if s.total %}{{ s.replied_count|percentage:s.total }}{% else %}0%{% endif %}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6" style="text-align:center;color:var(--text-dim);">No data yet</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Hot Leads -->
+{% if hot_leads %}
+<div class="sec" style="margin-top:24px;">
+  <div class="sec-title" style="color:var(--orange);">Hot Leads (Replied / Interested, Not Closed)</div>
+  <div class="card" style="overflow-x:auto;">
+    <table>
+      <thead><tr><th>Company</th><th>Domain</th><th>Country</th><th>Type</th><th>Score</th><th>Replied</th><th>Interested</th></tr></thead>
+      <tbody>
+      {% for lead in hot_leads %}
+      <tr>
+        <td><a href="{% url 'lead_detail' lead.pk %}" style="color:var(--text);font-weight:600;">{{ lead.company_name }}</a></td>
+        <td style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--cyan);">{{ lead.company_domain }}</td>
+        <td>{{ lead.country }}</td>
+        <td><span class="badge badge-blue">{{ lead.get_lead_type_display }}</span></td>
+        <td style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--green);">{{ lead.score }}</td>
+        <td>{% if lead.replied %}<span style="color:var(--green)">&#10003;</span>{% else %}&mdash;{% endif %}</td>
+        <td>{% if lead.interested %}<span class="badge badge-orange">Yes</span>{% else %}&mdash;{% endif %}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- Recently Closed -->
+{% if recent_closed %}
+<div class="sec" style="margin-top:24px;">
+  <div class="sec-title" style="color:var(--green);">Recently Closed Deals</div>
+  <div class="card" style="overflow-x:auto;">
+    <table>
+      <thead><tr><th>Company</th><th>Domain</th><th>Country</th><th>Type</th><th>Score</th><th>MRR</th></tr></thead>
+      <tbody>
+      {% for lead in recent_closed %}
+      <tr>
+        <td><a href="{% url 'lead_detail' lead.pk %}" style="color:var(--text);font-weight:600;">{{ lead.company_name }}</a></td>
+        <td style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--cyan);">{{ lead.company_domain }}</td>
+        <td>{{ lead.country }}</td>
+        <td><span class="badge badge-blue">{{ lead.get_lead_type_display }}</span></td>
+        <td style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--green);">{{ lead.score }}</td>
+        <td style="font-size:16px;font-weight:800;color:var(--green);">${{ lead.revenue_monthly|intcomma }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

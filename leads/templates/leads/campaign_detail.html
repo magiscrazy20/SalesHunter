@@ -1,0 +1,140 @@
+{% extends "leads/email_base.html" %}
+{% load humanize leads_extras %}
+
+{% block title %}{{ campaign.name }} - SalesHunter v2{% endblock %}
+
+{% block email_content %}
+<div style="margin-bottom:16px;">
+  <a href="{% url 'email_outreach' %}" style="color:var(--text-dim);font-size:13px;">&larr; Back to Email</a>
+</div>
+
+<!-- Campaign Header -->
+<div class="card" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+  <div style="flex:1;">
+    <div style="font-size:22px;font-weight:800;">{{ campaign.name }}</div>
+    {% if campaign.description %}<div style="font-size:13px;color:var(--text-muted);margin-top:4px;">{{ campaign.description }}</div>{% endif %}
+    <div style="font-size:11px;color:var(--text-dim);margin-top:4px;">Created {{ campaign.created_at|date:"M d, Y H:i" }}</div>
+  </div>
+  <div>
+    {% if campaign.status == 'sending' %}<span class="badge badge-green" style="font-size:13px;padding:6px 14px;">Sending</span>
+    {% elif campaign.status == 'sent' %}<span class="badge badge-blue" style="font-size:13px;padding:6px 14px;">Sent</span>
+    {% elif campaign.status == 'scheduled' %}<span class="badge" style="background:var(--purple-bg);color:var(--purple);font-size:13px;padding:6px 14px;">Scheduled</span>
+    {% elif campaign.status == 'paused' %}<span class="badge badge-orange" style="font-size:13px;padding:6px 14px;">Paused</span>
+    {% else %}<span class="badge" style="background:var(--surface2);color:var(--text-dim);font-size:13px;padding:6px 14px;">Draft</span>{% endif %}
+  </div>
+  <div style="display:flex;gap:8px;">
+    {% if campaign.status == 'draft' or campaign.status == 'paused' %}
+    <form method="post" action="{% url 'campaign_action' campaign.pk %}" style="display:inline;">
+      {% csrf_token %}<input type="hidden" name="action" value="send">
+      <button type="submit" class="btn btn-green btn-sm">Send Now</button>
+    </form>
+    {% endif %}
+    {% if campaign.status == 'sending' %}
+    <form method="post" action="{% url 'campaign_action' campaign.pk %}" style="display:inline;">
+      {% csrf_token %}<input type="hidden" name="action" value="pause">
+      <button type="submit" class="btn btn-sm" style="background:var(--orange);color:#000;">Pause</button>
+    </form>
+    {% endif %}
+    <a href="{% url 'campaign_edit' campaign.pk %}" class="btn btn-outline btn-sm">Edit</a>
+    <form method="post" action="{% url 'campaign_action' campaign.pk %}" style="display:inline;" onsubmit="return confirm('Delete this campaign?');">
+      {% csrf_token %}<input type="hidden" name="action" value="delete">
+      <button type="submit" class="btn btn-red btn-sm">Delete</button>
+    </form>
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="stats-row" style="margin-top:12px;">
+  <div class="stat"><div class="num" style="color:var(--blue)">{{ leads_count|intcomma }}</div><div class="lbl">Recipients</div></div>
+  <div class="stat"><div class="num" style="color:var(--green)">{{ campaign.total_sent|intcomma }}</div><div class="lbl">Sent</div></div>
+  <div class="stat"><div class="num" style="color:var(--cyan)">{{ campaign.total_opened|intcomma }}</div><div class="lbl">Opened</div></div>
+  <div class="stat"><div class="num" style="color:var(--purple)">{{ campaign.total_replied|intcomma }}</div><div class="lbl">Replied</div></div>
+  <div class="stat"><div class="num" style="color:var(--red)">{{ campaign.total_bounced|intcomma }}</div><div class="lbl">Bounced</div></div>
+  <div class="stat"><div class="num" style="color:var(--cyan)">{{ campaign.open_rate }}%</div><div class="lbl">Open Rate</div></div>
+  <div class="stat"><div class="num" style="color:var(--orange)">{{ campaign.reply_rate }}%</div><div class="lbl">Reply Rate</div></div>
+</div>
+
+<div class="grid-2">
+  <!-- Email Preview -->
+  <div class="card">
+    <h3>Email Preview</h3>
+    <div style="margin-bottom:12px;">
+      <div style="font-size:11px;color:var(--text-dim);text-transform:uppercase;font-family:'JetBrains Mono',monospace;margin-bottom:4px;">Subject</div>
+      <div style="font-size:14px;font-weight:600;color:var(--text);">{{ campaign.subject }}</div>
+    </div>
+    <div style="background:var(--surface2);border-radius:8px;padding:16px;font-size:13px;color:var(--text-muted);line-height:1.7;white-space:pre-wrap;">{{ campaign.body }}</div>
+    {% if campaign.cc %}
+    <div style="margin-top:10px;font-size:12px;color:var(--text-dim);">CC: {{ campaign.cc }}</div>
+    {% endif %}
+    {% if campaign.bcc %}
+    <div style="margin-top:4px;font-size:12px;color:var(--text-dim);">BCC: {{ campaign.bcc }}</div>
+    {% endif %}
+  </div>
+
+  <!-- Campaign Info -->
+  <div>
+    <div class="card">
+      <h3>Campaign Details</h3>
+      <table>
+        <tr><td style="color:var(--text-dim);width:150px;">Send Option</td><td style="color:var(--text);">{{ campaign.get_send_option_display }}</td></tr>
+        {% if campaign.scheduled_at %}
+        <tr><td style="color:var(--text-dim);">Scheduled For</td><td style="color:var(--purple);">{{ campaign.scheduled_at|date:"M d, Y H:i" }}</td></tr>
+        {% endif %}
+        <tr><td style="color:var(--text-dim);">Lead List</td><td style="color:var(--text);">{{ campaign.lead_list.name|default:"None" }}{% if campaign.lead_list %} ({{ leads_count }} leads){% endif %}</td></tr>
+        <tr><td style="color:var(--text-dim);">Template</td><td style="color:var(--text);">{{ campaign.template.name|default:"Custom" }}</td></tr>
+        <tr><td style="color:var(--text-dim);">SMTP</td><td style="color:var(--text);">{{ campaign.smtp_connection.name|default:"Auto select" }}</td></tr>
+      </table>
+    </div>
+
+    <!-- By Country -->
+    <div class="card">
+      <h3>Recipients by Country</h3>
+      <table>
+        <thead><tr><th>Country</th><th>Leads</th><th>Replied</th><th>Closed</th></tr></thead>
+        <tbody>
+        {% for c in by_country %}
+        <tr>
+          <td style="color:var(--text);font-weight:600;">{{ c.country }}</td>
+          <td>{{ c.total|intcomma }}</td>
+          <td>{{ c.replied_count }}</td>
+          <td style="color:var(--green);font-weight:700;">{{ c.closed_count }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4" style="text-align:center;color:var(--text-dim);">No data yet</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Recipients -->
+<div class="sec" style="margin-top:24px;">
+  <div class="sec-title">Recipients ({{ leads_count|intcomma }})</div>
+  <div class="card" style="overflow-x:auto;">
+    <table>
+      <thead><tr><th>Company</th><th>Contact</th><th>Email</th><th>Country</th><th>Type</th><th>Score</th><th>Status</th></tr></thead>
+      <tbody>
+      {% for lead in recent_leads %}
+      <tr>
+        <td><a href="{% url 'lead_detail' lead.pk %}" style="color:var(--text);font-weight:600;">{{ lead.company_name }}</a></td>
+        <td>{{ lead.contact_name }}</td>
+        <td style="font-size:11px;color:var(--cyan);font-family:'JetBrains Mono',monospace;">{{ lead.contact_email }}</td>
+        <td>{{ lead.country }}</td>
+        <td><span class="badge badge-blue">{{ lead.get_lead_type_display }}</span></td>
+        <td style="font-family:'JetBrains Mono',monospace;font-weight:700;{% if lead.score >= 70 %}color:var(--green){% elif lead.score >= 40 %}color:var(--yellow){% else %}color:var(--red){% endif %}">{{ lead.score }}</td>
+        <td>
+          {% if lead.replied %}<span class="badge badge-green">Replied</span>
+          {% elif lead.email_opened %}<span class="badge badge-blue">Opened</span>
+          {% elif lead.email_sent %}<span class="badge" style="background:var(--purple-bg);color:var(--purple);">Sent</span>
+          {% else %}<span class="badge" style="background:var(--surface2);color:var(--text-dim);">Queued</span>{% endif %}
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="7" style="text-align:center;color:var(--text-dim);padding:30px;">No lead list assigned. Edit campaign to select a lead list.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,254 @@
+{% extends "leads/master/base.html" %}
+{% block title %}{{ session.name }} - Lead Master{% endblock %}
+{% block form_page_title %}{{ session.name }}{% endblock %}
+
+{% block form_content %}
+<div class="search-panel" style="padding:16px 24px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+        <div>
+            <span class="badge src-{{ session.source }}" style="font-size:12px;padding:4px 10px;">{{ session.get_source_display }}</span>
+            <span style="color:var(--text-muted);font-size:13px;margin-left:8px;">{{ session.lead_count }} leads &middot; {{ session.created_at|date:"M d, Y h:i A" }}</span>
+            {% if session.status == 'running' %}<span class="mini-spinner" style="margin-left:8px;"></span><span style="color:#fbbf24;font-size:12px;margin-left:4px;">Running...</span>{% endif %}
+        </div>
+        <button class="btn btn-export" onclick="exportSessionCSV()">&#128229; Export CSV</button>
+    </div>
+    {% if session.search_params %}
+    <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);display:flex;gap:24px;flex-wrap:wrap;">
+        {% if session.search_params.keywords %}
+        <div><span style="color:var(--text-dim);font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">Keywords</span><br><span style="color:var(--text);font-size:13px;">{{ session.search_params.keywords }}</span></div>
+        {% endif %}
+        {% if session.search_params.location %}
+        <div><span style="color:var(--text-dim);font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">Location</span><br><span style="color:var(--text);font-size:13px;">{{ session.search_params.location }}</span></div>
+        {% elif session.search_params.locations %}
+        <div><span style="color:var(--text-dim);font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">Locations</span><br><span style="color:var(--text);font-size:13px;">{{ session.search_params.locations }}</span></div>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+<div class="stats">
+    <div class="stat-card" data-title="Total Leads" data-detail='[["Session","{{ session.name }}"],["Source","{{ session.get_source_display }}"],["Total Leads","{{ session.lead_count }}"],["Date","{{ session.created_at|date:"M d, Y h:i A" }}"]]'><div class="num">{{ session.lead_count }}</div><div class="label">Total Leads</div></div>
+    <div class="stat-card" data-title="With Email" data-detail='[["Description","Leads that have at least one email address found"],["Count","calculating..."]]'><div class="num" id="withEmail">0</div><div class="label">With Email</div></div>
+    <div class="stat-card" data-title="With Phone" data-detail='[["Description","Leads that have a phone number"],["Count","calculating..."]]'><div class="num" id="withPhone">0</div><div class="label">With Phone</div></div>
+    <div class="stat-card" data-title="With Website" data-detail='[["Description","Leads that have a website URL"],["Count","calculating..."]]'><div class="num" id="withWebsite">0</div><div class="label">With Website</div></div>
+    <div class="stat-card" style="display:flex;align-items:center;">
+        <button class="btn btn-primary" id="findAllBtn" onclick="findAllEmails()" style="white-space:nowrap;">&#128269; Find All Remaining Emails</button>
+    </div>
+    <div class="stat-card" id="bulkProgressCard" style="display:none;">
+        <div class="num" id="bulkStatus" style="font-size:14px;">Scanning...</div>
+        <div class="label" id="bulkDetail"></div>
+    </div>
+</div>
+
+{% if leads %}
+<div class="table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th>Source</th><th>Company</th><th>Location</th><th>Email</th><th>Phone</th><th>Website</th><th>Keyword</th><th>Industry</th><th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for lead in leads %}
+            <tr id="lead-row-{{ lead.id }}">
+                <td><span class="badge src-{{ lead.source }}">{{ lead.get_source_display }}</span></td>
+                <td><span class="company-name editable" data-field="company_name" data-id="{{ lead.id }}">{{ lead.company_name }}</span></td>
+                <td><span class="editable" data-field="location" data-id="{{ lead.id }}">{{ lead.location|default:"—" }}</span></td>
+                <td class="email-cell" id="email-cell-{{ lead.id }}">
+                    {% if lead.emails %}
+                        <ul class="email-list">
+                        {% for email in lead.emails %}
+                            <li><a href="mailto:{{ email }}">{{ email }}</a></li>
+                        {% endfor %}
+                        </ul>
+                        <span class="editable-email" data-id="{{ lead.id }}" onclick="manualEmail(this)" style="color:var(--text-dim);cursor:pointer;font-size:10px;">&#43; Add more</span>
+                    {% else %}
+                        {% if lead.website %}
+                        <button class="btn-find" onclick="findMissing({{ lead.id }}, this)">&#128269; Find Email</button>
+                        {% endif %}
+                        <span class="editable-email" data-id="{{ lead.id }}" onclick="manualEmail(this)" title="Add email" style="color:var(--text-dim);cursor:pointer;font-size:11px;">&#43; Add</span>
+                    {% endif %}
+                </td>
+                <td id="phone-cell-{{ lead.id }}">
+                    <span class="editable" data-field="phone" data-id="{{ lead.id }}">{{ lead.phone|default:"" }}</span>
+                </td>
+                <td>{% if lead.website %}<a class="link" href="{{ lead.website }}" target="_blank">{{ lead.website|truncatechars:25 }}</a> {% endif %}<span class="editable" data-field="website" data-id="{{ lead.id }}" style="{% if lead.website %}display:none;{% endif %}">{{ lead.website|default:"" }}</span></td>
+                <td><span class="editable" data-field="keyword" data-id="{{ lead.id }}">{{ lead.keyword|default:"—" }}</span></td>
+                <td><span class="editable" data-field="industry" data-id="{{ lead.id }}">{{ lead.industry|default:"—" }}</span></td>
+                <td>
+                    <button class="btn-edit" onclick="editRow({{ lead.id }})" title="Edit">&#9998;</button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="empty-state"><p>No leads in this session.</p></div>
+{% endif %}
+{% endblock %}
+
+{% block form_extra_js %}
+<style>
+.editable { cursor: text; border-bottom: 1px dashed transparent; transition: border-color 0.2s; }
+.editable:hover { border-bottom-color: var(--text-dim); }
+.editable.editing { background: var(--bg); padding: 2px 6px; border-radius: 4px; border-bottom: 1px solid var(--purple); outline: none; }
+.btn-find { background: var(--border); color: var(--text-muted); border: 1px solid var(--text-dim); padding: 3px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; font-weight: 600; }
+.btn-find:hover { background: var(--text-dim); color: var(--text); }
+.btn-find:disabled { opacity: 0.5; cursor: wait; }
+.btn-edit { background: none; border: 1px solid var(--text-dim); color: var(--text-muted); padding: 3px 8px; border-radius: 4px; font-size: 12px; cursor: pointer; }
+.btn-edit:hover { background: var(--border); color: var(--text); }
+</style>
+<script>
+// Count stats
+let withEmail = 0, withPhone = 0, withWebsite = 0;
+document.querySelectorAll('tbody tr').forEach(r => {
+    if (r.querySelector('.email-list')) withEmail++;
+    const phoneCell = r.querySelector('td:nth-child(5)');
+    if (phoneCell && phoneCell.querySelector('.editable') && phoneCell.querySelector('.editable').textContent.trim()) withPhone++;
+    const websiteCell = r.querySelector('td:nth-child(6)');
+    if (websiteCell && websiteCell.querySelector('a.link')) withWebsite++;
+});
+document.getElementById('withEmail').textContent = withEmail;
+document.getElementById('withWebsite').textContent = withWebsite;
+document.getElementById('withPhone').textContent = withPhone;
+
+// Inline editing — make all fields editable, click any to focus
+function editRow(leadId) {
+    const row = document.getElementById(`lead-row-${leadId}`);
+    const editables = row.querySelectorAll('.editable');
+    const alreadyEditing = row.querySelector('.editing');
+    if (alreadyEditing) {
+        editables.forEach(el => { el.contentEditable = false; el.classList.remove('editing'); if (el.dataset.field === 'website') el.style.display = el.textContent.trim() ? 'none' : 'block'; });
+        row.querySelectorAll('a.link').forEach(a => a.style.display = '');
+        saveRow(leadId, editables);
+        return;
+    }
+    row.querySelectorAll('a.link').forEach(a => a.style.display = 'none');
+    editables.forEach(el => {
+        el.style.display = 'block';
+        el.classList.add('editing');
+        el.contentEditable = true;
+        if (el.textContent.trim() === '\u2014') el.textContent = '';
+        el.addEventListener('keydown', function handler(e) {
+            if (e.key === 'Enter') { e.preventDefault(); editRow(leadId); }
+        });
+    });
+    if (editables.length) editables[0].focus();
+    const btn = row.querySelector('.btn-edit');
+    if (btn) { btn.innerHTML = '&#10003;'; btn.title = 'Save'; }
+}
+
+async function saveRow(leadId, editables) {
+    const updates = {};
+    editables.forEach(el => {
+        const field = el.dataset.field;
+        const value = el.textContent.trim();
+        if (field && value) updates[field] = value;
+    });
+    if (Object.keys(updates).length) {
+        await postJSON(`/form/master/api/lead/${leadId}/edit/`, updates);
+        showToast('Saved');
+    }
+    // Reset button
+    const row = document.getElementById(`lead-row-${leadId}`);
+    const btn = row.querySelector('.btn-edit');
+    if (btn) { btn.innerHTML = '&#9998;'; btn.title = 'Edit'; }
+}
+
+// Find missing email/phone
+async function findMissing(leadId, btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="mini-spinner"></span> Finding...';
+    try {
+        const resp = await postJSON(`/form/master/api/lead/${leadId}/find-missing/`, {});
+        const data = await resp.json();
+        if (data.emails && data.emails.length > 0) {
+            const emailCell = document.getElementById(`email-cell-${leadId}`);
+            if (emailCell) {
+                emailCell.innerHTML = `<ul class="email-list">${data.emails.map(e => `<li><a href="mailto:${esc(e)}">${esc(e)}</a></li>`).join('')}</ul>`;
+                withEmail++;
+                document.getElementById('withEmail').textContent = withEmail;
+            }
+        }
+        if (data.phone) {
+            const phoneCell = document.getElementById(`phone-cell-${leadId}`);
+            if (phoneCell) {
+                phoneCell.innerHTML = `<span class="editable" data-field="phone" data-id="${leadId}">${esc(data.phone)}</span>`;
+                withPhone++;
+                document.getElementById('withPhone').textContent = withPhone;
+            }
+        }
+        if (!data.emails?.length && !data.phone) {
+            btn.textContent = 'Not found';
+            btn.style.color = '#f87171';
+        }
+        showToast('Search complete');
+    } catch (err) {
+        btn.textContent = 'Error';
+        btn.style.color = '#f87171';
+    }
+}
+
+// Find all remaining emails (bulk - server-side)
+async function findAllEmails() {
+    const btn = document.getElementById('findAllBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="mini-spinner"></span> Starting bulk scan...';
+
+    try {
+        const resp = await postJSON('/form/master/api/session/{{ session.id }}/find-all-emails/', {});
+        const data = await resp.json();
+        if (data.started) {
+            btn.innerHTML = '<span class="mini-spinner"></span> Scanning ' + data.total + ' websites...';
+            document.getElementById('bulkProgressCard').style.display = 'block';
+            document.getElementById('bulkStatus').innerHTML = '<span class="mini-spinner"></span> Running in background';
+            document.getElementById('bulkDetail').textContent = data.total + ' websites to scan. Page will auto-refresh when done.';
+            showToast(data.message);
+
+            // Poll and refresh page when done
+            const pollId = setInterval(async () => {
+                try {
+                    const pr = await fetch('/form/master/api/session/{{ session.id }}/progress/');
+                    const pd = await pr.json();
+                    if (pd.progress && pd.progress.stage !== 'Finding emails') {
+                        clearInterval(pollId);
+                        location.reload();
+                    }
+                } catch(e) {}
+            }, 5000);
+        } else {
+            btn.innerHTML = '&#128269; Find All Remaining Emails';
+            btn.disabled = false;
+            showToast(data.message || 'No leads need scanning');
+        }
+    } catch (err) {
+        btn.innerHTML = '&#128269; Find All Remaining Emails';
+        btn.disabled = false;
+        showError('Failed to start bulk scan');
+    }
+}
+
+function exportSessionCSV() {
+    const headers = ['Source','Company','Location','Emails','Phone','Website','Keyword','Industry'];
+    const csvRows = [];
+    document.querySelectorAll('tbody tr').forEach(r => {
+        const cells = r.cells;
+        const emails = [];
+        const emailCell = cells[3];
+        emailCell.querySelectorAll('.email-list a').forEach(a => emails.push(a.textContent));
+        csvRows.push([
+            cells[0].textContent.trim(),
+            cells[1].textContent.trim(),
+            cells[2].textContent.trim(),
+            emails.join('; '),
+            cells[4].textContent.trim(),
+            cells[5].querySelector('a') ? cells[5].querySelector('a').href : '',
+            cells[6].textContent.trim(),
+            cells[7].textContent.trim(),
+        ]);
+    });
+    exportCSVData(headers, csvRows, `session_leads_{{ session.id }}.csv`);
+}
+</script>
+{% endblock %}

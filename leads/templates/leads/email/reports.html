@@ -1,0 +1,45 @@
+{% extends "leads/email_base.html" %}
+{% load humanize %}
+
+{% block title %}Email Reports - SalesHunter v2{% endblock %}
+
+{% block email_content %}
+<h2 style="margin-bottom:20px;">Reports</h2>
+
+<div class="stats-row">
+  <div class="stat"><div class="num" style="color:var(--blue)">{{ total_sent|intcomma }}</div><div class="lbl">Total Sent</div></div>
+  <div class="stat"><div class="num" style="color:var(--cyan)">{{ total_opened|intcomma }}</div><div class="lbl">Total Opened</div></div>
+  <div class="stat"><div class="num" style="color:var(--green)">{{ total_replied|intcomma }}</div><div class="lbl">Total Replied</div></div>
+  <div class="stat"><div class="num" style="color:var(--red)">{{ total_bounced|intcomma }}</div><div class="lbl">Total Bounced</div></div>
+  <div class="stat"><div class="num" style="color:var(--cyan)">{{ open_rate }}%</div><div class="lbl">Open Rate</div></div>
+  <div class="stat"><div class="num" style="color:var(--orange)">{{ reply_rate }}%</div><div class="lbl">Reply Rate</div></div>
+</div>
+
+<div class="card" style="overflow-x:auto;">
+  <h3>Campaign Performance</h3>
+  <table>
+    <thead><tr><th>Campaign</th><th>Status</th><th>Recipients</th><th>Sent</th><th>Opened</th><th>Open %</th><th>Replied</th><th>Reply %</th><th>Bounced</th></tr></thead>
+    <tbody>
+    {% for c in campaigns %}
+    <tr>
+      <td><a href="{% url 'campaign_detail' c.pk %}" style="color:var(--text);font-weight:600;">{{ c.name }}</a></td>
+      <td>
+        {% if c.status == 'sending' %}<span class="badge badge-green">Sending</span>
+        {% elif c.status == 'sent' %}<span class="badge badge-blue">Sent</span>
+        {% else %}<span class="badge" style="background:var(--surface2);color:var(--text-dim);">{{ c.status }}</span>{% endif %}
+      </td>
+      <td>{{ c.total_recipients|intcomma }}</td>
+      <td>{{ c.total_sent|intcomma }}</td>
+      <td>{{ c.total_opened|intcomma }}</td>
+      <td style="font-family:'JetBrains Mono',monospace;{% if c.open_rate >= 20 %}color:var(--green){% elif c.open_rate >= 10 %}color:var(--yellow){% else %}color:var(--red){% endif %}">{{ c.open_rate }}%</td>
+      <td style="color:var(--green);font-weight:700;">{{ c.total_replied|intcomma }}</td>
+      <td style="font-family:'JetBrains Mono',monospace;">{{ c.reply_rate }}%</td>
+      <td style="color:var(--red);">{{ c.total_bounced|intcomma }}</td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="9" style="text-align:center;color:var(--text-dim);">No campaign data yet</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

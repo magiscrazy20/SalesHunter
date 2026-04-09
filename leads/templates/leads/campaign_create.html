@@ -1,0 +1,168 @@
+{% extends "leads/email_base.html" %}
+
+{% block title %}New Campaign - SalesHunter v2{% endblock %}
+
+{% block email_extra_css %}
+<style>
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:200;display:flex;align-items:center;justify-content:center;}
+  .modal{background:var(--surface);border:1px solid var(--border);border-radius:14px;width:100%;max-width:720px;max-height:90vh;overflow-y:auto;padding:0;}
+  .modal-header{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+  .modal-header h2{font-size:18px;font-weight:700;}
+  .modal-header .close{font-size:20px;color:var(--text-dim);cursor:pointer;background:none;border:none;padding:4px 8px;}
+  .modal-header .close:hover{color:var(--text);}
+  .modal-body{padding:24px;}
+  .modal-footer{padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px;}
+
+  .form-row{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;}
+  .form-group{margin-bottom:20px;}
+  .form-group label{display:block;font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px;}
+  .form-group input,.form-group select,.form-group textarea{width:100%;}
+  .form-group textarea{min-height:140px;resize:vertical;font-family:'Inter',sans-serif;line-height:1.6;}
+  .form-group .hint{font-size:11px;color:var(--text-dim);margin-top:4px;}
+
+  .radio-group{display:flex;gap:20px;margin-top:6px;}
+  .radio-group label{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:400;color:var(--text-muted);cursor:pointer;}
+  .radio-group input[type="radio"]{accent-color:var(--blue);}
+
+  .section-label{font-size:14px;font-weight:700;color:var(--text);margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border);}
+
+  .cc-row{display:flex;gap:8px;align-items:flex-start;}
+  .cc-row input{flex:1;}
+  .cc-row .btn{flex-shrink:0;margin-top:0;}
+
+  .schedule-field{display:none;margin-top:10px;}
+  .schedule-field.show{display:block;}
+
+  .variables{font-size:11px;color:var(--text-dim);margin-top:6px;font-family:'JetBrains Mono',monospace;}
+  .variables span{background:var(--surface2);padding:2px 6px;border-radius:4px;margin:0 2px;}
+</style>
+{% endblock %}
+
+{% block email_content %}
+<div class="modal-overlay" style="position:relative;background:transparent;min-height:80vh;">
+  <div class="modal" style="margin:0 auto;">
+    <form method="post" action="{% url 'campaign_create' %}">
+    {% csrf_token %}
+
+    <div class="modal-header">
+      <h2>Create New Campaign</h2>
+      <a href="{% url 'email_outreach' %}" class="close">&times;</a>
+    </div>
+
+    <div class="modal-body">
+      <div class="form-row">
+        <!-- Left column -->
+        <div>
+          <div class="form-group">
+            <label>Campaign Name</label>
+            <input type="text" name="name" placeholder="Enter campaign name" required>
+          </div>
+          <div class="form-group">
+            <label>Description</label>
+            <input type="text" name="description" placeholder="Campaign description">
+          </div>
+          <div class="form-group">
+            <label>Email Subject</label>
+            <input type="text" name="subject" placeholder="Email subject line" required>
+          </div>
+        </div>
+
+        <!-- Right column -->
+        <div>
+          <div class="form-group">
+            <label>Send Option</label>
+            <div class="radio-group">
+              <label><input type="radio" name="send_option" value="now" checked> Send Now</label>
+              <label><input type="radio" name="send_option" value="later" id="schedule-radio"> Schedule for Later</label>
+            </div>
+            <div class="schedule-field" id="schedule-field">
+              <input type="datetime-local" name="scheduled_at">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Lead List</label>
+            <select name="lead_list">
+              <option value="">Select lead list</option>
+              {% for ll in lead_lists %}
+              <option value="{{ ll.pk }}">{{ ll.name }} ({{ ll.leads.count }} leads)</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Email Template (Optional)</label>
+            <select name="template" id="template-select">
+              <option value="">Select a template (optional)</option>
+              {% for t in templates %}
+              <option value="{{ t.pk }}" data-subject="{{ t.subject }}" data-body="{{ t.body }}">{{ t.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label>SMTP Connection (Optional)</label>
+            <select name="smtp_connection">
+              <option value="">Auto select (Recommended)</option>
+              {% for s in smtp_connections %}
+              <option value="{{ s.pk }}">{{ s.name }} ({{ s.from_email }})</option>
+              {% endfor %}
+            </select>
+            <div class="hint">Leave as auto-select to let the system choose the best SMTP connection, or select a specific one for testing.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Additional Recipients -->
+      <div class="section-label">Additional Recipients</div>
+      <div class="form-row" style="margin-bottom:24px;">
+        <div class="form-group" style="margin-bottom:0;">
+          <label>CC (Carbon Copy)</label>
+          <div class="hint" style="margin-bottom:6px;">Recipients will see other CC recipients</div>
+          <div class="cc-row">
+            <input type="text" name="cc" placeholder="Enter CC email addresses">
+          </div>
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label>BCC (Blind Carbon Copy)</label>
+          <div class="hint" style="margin-bottom:6px;">Recipients won't see other BCC recipients</div>
+          <div class="cc-row">
+            <input type="text" name="bcc" placeholder="Enter BCC email addresses">
+          </div>
+        </div>
+      </div>
+
+      <!-- Email Content -->
+      <div class="form-group">
+        <label>Email Content</label>
+        <textarea name="body" id="email-body" placeholder="Write your email content here... Use {{firstName}}, {{lastName}}, {{company}} for personalization"></textarea>
+        <div class="variables">Available variables: <span>{{firstName}}</span> <span>{{lastName}}</span> <span>{{company}}</span> <span>{{email}}</span></div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <a href="{% url 'email_outreach' %}" class="btn btn-outline">Cancel</a>
+      <button type="submit" class="btn btn-blue">Create Campaign</button>
+    </div>
+
+    </form>
+  </div>
+</div>
+
+<script>
+  // Show/hide schedule field
+  document.querySelectorAll('input[name="send_option"]').forEach(function(radio) {
+    radio.addEventListener('change', function() {
+      document.getElementById('schedule-field').classList.toggle('show', this.value === 'later');
+    });
+  });
+
+  // Auto-fill from template
+  document.getElementById('template-select').addEventListener('change', function() {
+    var opt = this.options[this.selectedIndex];
+    if (opt.value) {
+      var subjectField = document.querySelector('input[name="subject"]');
+      var bodyField = document.getElementById('email-body');
+      if (opt.dataset.subject) subjectField.value = opt.dataset.subject;
+      if (opt.dataset.body) bodyField.value = opt.dataset.body;
+    }
+  });
+</script>
+{% endblock %}

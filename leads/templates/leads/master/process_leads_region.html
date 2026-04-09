@@ -1,0 +1,158 @@
+{% extends "leads/master/base.html" %}
+{% block title %}{{ region }}, {{ country }} - Process Leads{% endblock %}
+{% block form_page_title %}{{ region }}, {{ country }} — {{ leads|length }} Leads{% endblock %}
+
+{% block form_content %}
+<div class="search-panel" style="padding:12px 24px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+        <div>
+            <a href="{% url 'master_process_leads' %}" style="color:var(--purple);text-decoration:none;font-size:13px;">All Countries</a>
+            <span style="color:var(--text-dim);margin:0 6px;">&#8250;</span>
+            <a href="{% url 'master_process_leads_country' country %}" style="color:var(--purple);text-decoration:none;font-size:13px;">{{ country }}</a>
+            <span style="color:var(--text-dim);margin:0 6px;">&#8250;</span>
+            <strong style="color:var(--text);">{{ region }}</strong>
+        </div>
+        <button class="btn btn-export" onclick="exportRegionCSV()">&#128229; Export CSV</button>
+    </div>
+</div>
+
+<div class="stats">
+    <div class="stat-card" data-title="Total Leads" data-detail='[["Region","{{ region }}"],["Country","{{ country }}"],["Total","{{ leads|length }}"],["With Email","{{ with_email }}"],["With Phone","{{ with_phone }}"],["With Website","{{ with_website }}"]]'><div class="num">{{ leads|length }}</div><div class="label">Total Leads</div></div>
+    <div class="stat-card" data-title="With Email" data-detail='[["With Email","{{ with_email }}"],["Total","{{ leads|length }}"]]'><div class="num" id="withEmail" style="color:#4ade80;">{{ with_email }}</div><div class="label">With Email</div></div>
+    <div class="stat-card" data-title="With Phone" data-detail='[["With Phone","{{ with_phone }}"],["Total","{{ leads|length }}"]]'><div class="num" id="withPhone" style="color:#22d3ee;">{{ with_phone }}</div><div class="label">With Phone</div></div>
+    <div class="stat-card" data-title="With Website" data-detail='[["With Website","{{ with_website }}"],["Total","{{ leads|length }}"]]'><div class="num" style="color:#f59e0b;">{{ with_website }}</div><div class="label">With Website</div></div>
+    <div class="stat-card" style="display:flex;align-items:center;">
+        <button class="btn btn-primary" id="findAllBtn" onclick="findAllEmails()">&#128269; Find All Missing Emails</button>
+    </div>
+</div>
+
+{% if leads %}
+<div class="table-wrap">
+    <table>
+        <thead><tr><th>Source</th><th>Company</th><th>Location</th><th>Email</th><th>Phone</th><th>Website</th><th>Keyword</th><th>Industry</th><th>Actions</th></tr></thead>
+        <tbody>
+            {% for lead in leads %}
+            <tr id="lead-row-{{ lead.id }}">
+                <td><span class="badge src-{{ lead.source }}">{{ lead.get_source_display }}</span></td>
+                <td><span class="company-name editable" data-field="company_name" data-id="{{ lead.id }}">{{ lead.company_name }}</span></td>
+                <td><span class="editable" data-field="location" data-id="{{ lead.id }}">{{ lead.location|default:"—" }}</span></td>
+                <td class="email-cell" id="email-cell-{{ lead.id }}">
+                    {% if lead.emails %}
+                        <ul class="email-list">{% for e in lead.emails %}<li><a href="mailto:{{ e }}">{{ e }}</a></li>{% endfor %}</ul>
+                        <span class="editable-email" data-id="{{ lead.id }}" onclick="manualEmail(this)" style="color:var(--text-dim);cursor:pointer;font-size:10px;">&#43; Add more</span>
+                    {% else %}
+                        {% if lead.website %}
+                        <button class="btn-find" onclick="findMissing({{ lead.id }}, this)">&#128269; Find</button>
+                        {% endif %}
+                        <span class="editable-email" data-id="{{ lead.id }}" onclick="manualEmail(this)" title="Add email" style="color:var(--text-dim);cursor:pointer;font-size:11px;">&#43; Add</span>
+                    {% endif %}
+                </td>
+                <td id="phone-cell-{{ lead.id }}"><span class="editable" data-field="phone" data-id="{{ lead.id }}">{{ lead.phone|default:"" }}</span></td>
+                <td>{% if lead.website %}<a class="link" href="{{ lead.website }}" target="_blank">{{ lead.website|truncatechars:25 }}</a> {% endif %}<span class="editable" data-field="website" data-id="{{ lead.id }}" style="{% if lead.website %}display:none;{% endif %}">{{ lead.website|default:"" }}</span></td>
+                <td><span class="editable" data-field="keyword" data-id="{{ lead.id }}">{{ lead.keyword|default:"—" }}</span></td>
+                <td><span class="editable" data-field="industry" data-id="{{ lead.id }}">{{ lead.industry|default:"—" }}</span></td>
+                <td><button class="btn-edit" onclick="editRow({{ lead.id }})" title="Edit">&#9998;</button></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="empty-state"><p>No leads for {{ region }}, {{ country }}.</p></div>
+{% endif %}
+{% endblock %}
+
+{% block form_extra_js %}
+<style>
+.btn-find { background: var(--border); color: var(--text-muted); border: 1px solid var(--text-dim); padding: 3px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; font-weight: 600; }
+.btn-find:hover { background: var(--text-dim); color: var(--text); }
+.btn-find:disabled { opacity: 0.5; cursor: wait; }
+.btn-edit { background: none; border: 1px solid var(--text-dim); color: var(--text-muted); padding: 3px 8px; border-radius: 4px; font-size: 12px; cursor: pointer; }
+.btn-edit:hover { background: var(--border); color: var(--text); }
+.editable { cursor: text; border-bottom: 1px dashed transparent; transition: border-color 0.2s; }
+.editable:hover { border-bottom-color: var(--text-dim); }
+.editable.editing { background: var(--bg); padding: 2px 6px; border-radius: 4px; border-bottom: 1px solid var(--purple); outline: none; }
+</style>
+<script>
+function editRow(leadId) {
+    const row = document.getElementById(`lead-row-${leadId}`);
+    const editables = row.querySelectorAll('.editable');
+    const alreadyEditing = row.querySelector('.editing');
+    if (alreadyEditing) {
+        editables.forEach(el => { el.contentEditable = false; el.classList.remove('editing'); if (el.dataset.field === 'website') el.style.display = el.textContent.trim() ? 'none' : 'block'; });
+        row.querySelectorAll('a.link').forEach(a => a.style.display = '');
+        saveRow(leadId, editables);
+        return;
+    }
+    row.querySelectorAll('a.link').forEach(a => a.style.display = 'none');
+    editables.forEach(el => {
+        el.style.display = 'block';
+        el.classList.add('editing');
+        el.contentEditable = true;
+        if (el.textContent.trim() === '\u2014') el.textContent = '';
+        el.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); editRow(leadId); } });
+    });
+    if (editables.length) editables[0].focus();
+    const btn = row.querySelector('.btn-edit');
+    if (btn) { btn.innerHTML = '&#10003;'; btn.title = 'Save'; }
+}
+async function saveRow(leadId, editables) {
+    const updates = {};
+    editables.forEach(el => { const f = el.dataset.field; const v = el.textContent.trim(); if (f && v) updates[f] = v; });
+    if (Object.keys(updates).length) { await postJSON(`/form/master/api/lead/${leadId}/edit/`, updates); showToast('Saved'); }
+    const row = document.getElementById(`lead-row-${leadId}`);
+    const btn = row.querySelector('.btn-edit');
+    if (btn) { btn.innerHTML = '&#9998;'; btn.title = 'Edit'; }
+}
+
+async function findMissing(leadId, btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="mini-spinner"></span> Finding...';
+    try {
+        const resp = await postJSON(`/form/master/api/lead/${leadId}/find-missing/`, {});
+        const data = await resp.json();
+        if (data.emails && data.emails.length > 0) {
+            const cell = document.getElementById(`email-cell-${leadId}`);
+            if (cell) cell.innerHTML = `<ul class="email-list">${data.emails.map(e => `<li><a href="mailto:${esc(e)}">${esc(e)}</a></li>`).join('')}</ul>`;
+        }
+        if (data.phone) {
+            const row = document.getElementById(`lead-row-${leadId}`);
+            if (row) row.cells[4].textContent = data.phone;
+        }
+        if (!data.emails?.length && !data.phone) { btn.textContent = 'Not found'; btn.style.color = '#f87171'; }
+        else showToast('Found!');
+    } catch (err) { btn.textContent = 'Error'; btn.style.color = '#f87171'; }
+}
+
+async function findAllEmails() {
+    const btn = document.getElementById('findAllBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="mini-spinner"></span> Starting...';
+    try {
+        const resp = await postJSON('/form/master/api/find-all-emails-region/{{ country }}/{{ region }}/', {});
+        const data = await resp.json();
+        if (data.started) {
+            btn.innerHTML = '<span class="mini-spinner"></span> Scanning ' + data.total + ' websites...';
+            showToast(data.message + ' — page will refresh when done.');
+            setTimeout(() => location.reload(), 60000);
+        } else {
+            btn.innerHTML = '&#128269; Find All Missing Emails';
+            btn.disabled = false;
+            showToast(data.message || 'No leads need scanning');
+        }
+    } catch (err) { btn.innerHTML = '&#128269; Find All Missing Emails'; btn.disabled = false; }
+}
+
+function exportRegionCSV() {
+    const headers = ['Source','Company','Location','Emails','Phone','Website','Keyword','Industry'];
+    const rows = [];
+    document.querySelectorAll('tbody tr').forEach(r => {
+        const c = r.cells;
+        const emails = [];
+        c[3].querySelectorAll('.email-list a').forEach(a => emails.push(a.textContent));
+        rows.push([c[0].textContent.trim(), c[1].textContent.trim(), c[2].textContent.trim(), emails.join('; '), c[4].textContent.trim(), c[5].querySelector('a') ? c[5].querySelector('a').href : '', c[6].textContent.trim(), c[7].textContent.trim()]);
+    });
+    exportCSVData(headers, rows, `leads_{{ region }}_{{ country }}.csv`);
+}
+</script>
+{% endblock %}

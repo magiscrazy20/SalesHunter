@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block extra_css %}
+<style>
+  .email-layout{display:flex;gap:0;min-height:calc(100vh - 70px);margin:-24px -32px;}
+  .email-sidebar{width:230px;background:var(--surface);border-right:1px solid var(--border);padding:0;flex-shrink:0;position:sticky;top:70px;height:calc(100vh - 70px);overflow-y:auto;}
+  .email-sidebar-header{padding:20px 20px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+  .email-sidebar-header .icon{width:36px;height:36px;background:var(--blue);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;color:white;}
+  .email-sidebar-header .title{font-size:15px;font-weight:800;color:var(--text);}
+  .email-sidebar-nav{padding:12px 0;}
+  .email-sidebar-nav a{display:flex;align-items:center;gap:12px;padding:10px 20px;font-size:14px;color:var(--text-muted);text-decoration:none;transition:all .12s;border-left:3px solid transparent;}
+  .email-sidebar-nav a:hover{color:var(--text);background:var(--surface2);text-decoration:none;}
+  .email-sidebar-nav a.active{color:var(--blue);background:var(--blue-bg);border-left-color:var(--blue);font-weight:600;}
+  .email-sidebar-nav a .nav-icon{width:20px;text-align:center;font-size:16px;flex-shrink:0;}
+  .email-content{flex:1;padding:24px 32px;overflow-x:hidden;min-width:0;}
+  @media(max-width:900px){.email-sidebar{display:none;}.email-content{padding:16px;}}
+</style>
+{% block email_extra_css %}{% endblock %}
+{% endblock %}
+
+{% block content %}
+<div class="email-layout">
+  <div class="email-sidebar">
+    <div class="email-sidebar-header">
+      <div class="icon">&#9993;</div>
+      <div class="title">Email Campaigns</div>
+    </div>
+    <div class="email-sidebar-nav">
+      <a href="{% url 'email_dashboard' %}" class="{% if active_tab == 'dashboard' %}active{% endif %}">
+        <span class="nav-icon">&#127968;</span> Dashboard
+      </a>
+      <a href="{% url 'email_campaigns' %}" class="{% if active_tab == 'campaigns' %}active{% endif %}">
+        <span class="nav-icon">&#9993;</span> Campaigns
+      </a>
+      <a href="{% url 'email_leads' %}" class="{% if active_tab == 'leads' %}active{% endif %}">
+        <span class="nav-icon">&#128101;</span> Leads
+      </a>
+      <a href="{% url 'email_templates' %}" class="{% if active_tab == 'templates' %}active{% endif %}">
+        <span class="nav-icon">&#128196;</span> Templates
+      </a>
+      <a href="{% url 'email_smtp' %}" class="{% if active_tab == 'smtp' %}active{% endif %}">
+        <span class="nav-icon">&#128268;</span> SMTP Settings
+      </a>
+      <a href="{% url 'email_warmup' %}" class="{% if active_tab == 'warmup' %}active{% endif %}">
+        <span class="nav-icon">&#128293;</span> Warmup
+      </a>
+      <a href="{% url 'email_reports' %}" class="{% if active_tab == 'reports' %}active{% endif %}">
+        <span class="nav-icon">&#128202;</span> Reports
+      </a>
+      <a href="{% url 'email_replies' %}" class="{% if active_tab == 'replies' %}active{% endif %}">
+        <span class="nav-icon">&#128172;</span> Reply Reports
+      </a>
+    </div>
+  </div>
+  <div class="email-content">
+    {% block email_content %}{% endblock %}
+  </div>
+</div>
+{% endblock %}

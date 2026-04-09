@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% load humanize leads_extras %}
+
+{% block title %}Dashboard - SalesHunter v2{% endblock %}
+
+{% block content %}
+<!-- Stats Row -->
+<div class="stats-row">
+  <div class="stat"><div class="num" style="color:var(--green)">{{ total_leads|intcomma }}</div><div class="lbl">Total Leads</div></div>
+  <div class="stat"><div class="num" style="color:var(--cyan)">{{ leads_today|intcomma }}</div><div class="lbl">Today</div></div>
+  <div class="stat"><div class="num" style="color:var(--blue)">{{ emailed|intcomma }}</div><div class="lbl">Emailed</div></div>
+  <div class="stat"><div class="num" style="color:var(--purple)">{{ forms_filled|intcomma }}</div><div class="lbl">Forms Filled</div></div>
+  <div class="stat"><div class="num" style="color:var(--orange)">{{ replies|intcomma }}</div><div class="lbl">Replies</div></div>
+  <div class="stat"><div class="num" style="color:var(--yellow)">{{ interested|intcomma }}</div><div class="lbl">Interested</div></div>
+  <div class="stat"><div class="num" style="color:var(--green)">{{ closed|intcomma }}</div><div class="lbl">Closed</div></div>
+  <div class="stat"><div class="num" style="color:var(--green)">${{ total_mrr|intcomma }}</div><div class="lbl">MRR</div></div>
+</div>
+
+<div class="grid-2">
+  <!-- Funnel -->
+  <div class="card">
+    <h3>Sales Funnel</h3>
+    {% for step in funnel %}
+    <div class="funnel-step">
+      <div class="funnel-bar" style="background:{{ step.color }};width:{% if total_leads %}{{ step.count|multiply:100|divisibleby:total_leads }}{% else %}0{% endif %}%;min-width:40px;">
+      </div>
+      <div class="funnel-label">{{ step.label }}</div>
+      <div class="funnel-num">{{ step.count|intcomma }}</div>
+      <div class="funnel-rate">{% if total_leads %}{{ step.count|percentage:total_leads }}{% else %}0%{% endif %}</div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Quick Stats -->
+  <div>
+    <div class="card">
+      <h3>Performance</h3>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="stat"><div class="num" style="color:var(--orange);font-size:22px;">{{ reply_rate|floatformat:1 }}%</div><div class="lbl">Reply Rate</div></div>
+        <div class="stat"><div class="num" style="color:var(--green);font-size:22px;">{{ close_rate|floatformat:2 }}%</div><div class="lbl">Close Rate</div></div>
+        <div class="stat"><div class="num" style="color:var(--blue);font-size:22px;">{{ followup_due|intcomma }}</div><div class="lbl">Follow-ups Due</div></div>
+        <div class="stat"><div class="num" style="color:var(--purple);font-size:22px;">{{ active_sources }}</div><div class="lbl">Active Sources</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Source Health</h3>
+      <div style="display:flex;gap:12px;">
+        <div style="flex:1;">
+          <span class="badge badge-green">{{ active_sources }} Active</span>
+        </div>
+        <div style="flex:1;">
+          <span class="badge badge-red">{{ exhausted_sources }} Exhausted</span>
+        </div>
+        <div style="flex:1;">
+          <span class="badge badge-orange">{{ active_exclusions.count }} Exclusions</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- By Country & Lead Type -->
+<div class="grid-2" style="margin-top:12px;">
+  <div class="card">
+    <h3>Top Countries</h3>
+    <table>
+      <thead><tr><th>Country</th><th>Leads</th><th>Replies</th><th>Closed</th><th>Close %</th></tr></thead>
+      <tbody>
+      {% for c in by_country %}
+      <tr>
+        <td style="color:var(--text);font-weight:600;">{{ c.country }}</td>
+        <td>{{ c.total|intcomma }}</td>
+        <td>{{ c.replied_count }}</td>
+        <td style="color:var(--green);font-weight:700;">{{ c.closed_count }}</td>
+        <td>{% if c.total %}{{ c.closed_count|percentage:c.total }}{% else %}0%{% endif %}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5" style="text-align:center;color:var(--text-dim);">No data yet</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3>By Lead Type</h3>
+    <table>
+      <thead><tr><th>Type</th><th>Leads</th><th>Replies</th><th>Closed</th><th>Close %</th></tr></thead>
+      <tbody>
+      {% for t in by_lead_type %}
+      <tr>
+        <td style="color:var(--text);font-weight:600;">{{ t.lead_type }}</td>
+        <td>{{ t.total|intcomma }}</td>
+        <td>{{ t.replied_count }}</td>
+        <td style="color:var(--green);font-weight:700;">{{ t.closed_count }}</td>
+        <td>{% if t.total %}{{ t.closed_count|percentage:t.total }}{% else %}0%{% endif %}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5" style="text-align:center;color:var(--text-dim);">No data yet</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Active Exclusions -->
+{% if active_exclusions %}
+<div class="sec" style="margin-top:24px;">
+  <div class="sec-title">Active Exclusion Rules</div>
+  <div class="card">
+    {% for rule in active_exclusions %}
+    <div class="alert alert-red" style="display:flex;justify-content:space-between;align-items:center;">
+      <div>
+        <strong>{{ rule.get_rule_type_display }}</strong> &mdash; {{ rule.dimension_value }}
+        <br><span style="font-size:11px;">{{ rule.reason }}</span>
+      </div>
+      <span class="badge badge-red">{{ rule.metric_value|floatformat:1 }}%</span>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Recent Leads -->
+<div class="sec" style="margin-top:24px;">
+  <div class="sec-title">Recent Leads <a href="{% url 'lead_list' %}" class="btn btn-outline btn-sm" style="margin-left:auto;">View All</a></div>
+  <div class="card" style="overflow-x:auto;">
+    <table>
+      <thead><tr><th>Company</th><th>Country</th><th>Type</th><th>Source</th><th>Score</th><th>Email</th><th>Form</th><th>Reply</th><th>Status</th></tr></thead>
+      <tbody>
+      {% for lead in recent_leads %}
+      <tr>
+        <td><a href="{% url 'lead_detail' lead.pk %}">{{ lead.company_name }}</a></td>
+        <td>{{ lead.country }}</td>
+        <td><span class="badge badge-blue">{{ lead.get_lead_type_display }}</span></td>
+        <td>{{ lead.get_source_display }}</td>
+        <td style="font-family:'JetBrains Mono',monospace;{% if lead.score >= 70 %}color:var(--green){% elif lead.score >= 40 %}color:var(--yellow){% else %}color:var(--red){% endif %}">{{ lead.score }}</td>
+        <td>{% if lead.email_sent %}<span style="color:var(--green)">&#10003;</span>{% else %}&mdash;{% endif %}</td>
+        <td>{% if lead.form_filled %}<span style="color:var(--green)">&#10003;</span>{% else %}&mdash;{% endif %}</td>
+        <td>{% if lead.replied %}<span style="color:var(--green)">&#10003;</span>{% else %}&mdash;{% endif %}</td>
+        <td>
+          {% if lead.closed %}<span class="badge badge-green">Closed</span>
+          {% elif lead.interested %}<span class="badge badge-orange">Interested</span>
+          {% elif lead.replied %}<span class="badge badge-blue">Replied</span>
+          {% elif lead.email_sent %}<span class="badge" style="background:var(--surface2);color:var(--text-dim);">Contacted</span>
+          {% else %}<span class="badge" style="background:var(--surface2);color:var(--text-dim);">New</span>{% endif %}
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="9" style="text-align:center;color:var(--text-dim);">No leads yet. Run the scraper to get started!</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

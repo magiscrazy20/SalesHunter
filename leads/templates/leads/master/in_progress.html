@@ -1,0 +1,285 @@
+{% extends "leads/master/base.html" %}
+{% block title %}In Progress - Lead Master{% endblock %}
+{% block form_page_title %}In Progress{% endblock %}
+
+{% block form_content %}
+<div class="stats">
+    <div class="stat-card"><div class="num" id="gRunning" style="color:#fbbf24;">{{ total_running }}</div><div class="label">Running</div></div>
+    <div class="stat-card"><div class="num" id="gPending" style="color:var(--text-muted);">{{ total_pending }}</div><div class="label">Queued</div></div>
+    <div class="stat-card"><div class="num" id="gSuccess" style="color:#4ade80;">{{ total_success }}</div><div class="label">Success</div></div>
+    <div class="stat-card"><div class="num" id="gFailed" style="color:#f87171;">{{ total_failed }}</div><div class="label">Failed</div></div>
+    <div class="stat-card" style="display:flex;align-items:center;">
+        <button class="btn" style="background:#7f1d1d;color:#fca5a5;white-space:nowrap;" onclick="stopAll()">&#9724; Stop All</button>
+    </div>
+</div>
+
+{% if entity_rows %}
+{% for entity in entity_rows %}
+<div class="ip-entity" data-entity="{{ entity.name }}">
+    <!-- Header -->
+    <div class="ip-entity-header" onclick="toggleEntity(this)">
+        <div style="display:flex;align-items:center;gap:10px;">
+            <span class="ip-arrow">&#9654;</span>
+            <div>
+                <strong style="color:var(--text);font-size:15px;">{{ entity.name }}</strong>
+                <span style="color:var(--text-dim);font-size:12px;margin-left:8px;">{{ entity.email }}</span>
+            </div>
+            <span class="ip-status-badge">
+                {% if entity.active %}
+                <span class="badge" style="background:#422006;color:#fbbf24;"><span class="mini-spinner" style="margin-right:4px;"></span> Active</span>
+                {% else %}
+                <span class="badge" style="background:var(--border);color:var(--text-muted);">Idle</span>
+                {% endif %}
+            </span>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;" onclick="event.stopPropagation();">
+            <span class="ip-success badge badge-green">{{ entity.success }}</span>
+            <span class="ip-failed badge" style="background:#7f1d1d;color:#fca5a5;">{{ entity.failed }}</span>
+            <span class="ip-total" style="color:var(--text-dim);font-size:10px;">/ {{ entity.total }}</span>
+            {% if entity.active %}
+            <button class="btn ip-stop-btn" style="padding:4px 10px;font-size:11px;background:#7f1d1d;color:#fca5a5;" onclick="stopEntity('{{ entity.name|escapejs }}')">&#9724; Stop</button>
+            {% endif %}
+            <a href="{% url 'master_form_automation_entity' entity.name %}" class="btn btn-secondary" style="padding:4px 10px;font-size:11px;text-decoration:none;">View</a>
+        </div>
+    </div>
+
+    <!-- Currently Processing -->
+    <div class="ip-proc-section" style="padding:0 20px;"></div>
+
+    <!-- Detail Table -->
+    <div class="ip-detail" style="display:none;padding:0 20px 16px;">
+        <table class="ip-table">
+            <thead><tr><th>Country</th><th>Keyword</th><th>Progress</th><th>Status</th><th>Action</th></tr></thead>
+            <tbody>
+                {% for sub in entity.sub_rows %}
+                <tr class="ip-row" onclick="toggleSubDetail('ip-sub-{{ forloop.parentloop.counter }}-{{ forloop.counter }}')">
+                    <td>{{ sub.country }}</td>
+                    <td><span class="badge badge-purple">{{ sub.keyword }}</span></td>
+                    <td>
+                        <span class="badge badge-green">{{ sub.success }}</span>
+                        <span class="badge" style="background:#7f1d1d;color:#fca5a5;">{{ sub.failed }}</span>
+                        <span style="color:var(--text-dim);font-size:10px;">/ {{ sub.total }}</span>
+                    </td>
+                    <td>
+                        {% if sub.running > 0 %}<span style="color:#fbbf24;font-size:11px;"><span class="mini-spinner"></span> Running</span>
+                        {% elif sub.remaining > 0 %}<span style="color:var(--text-muted);font-size:11px;">{{ sub.remaining }} left</span>
+                        {% else %}<span style="color:#4ade80;font-size:11px;">Done</span>{% endif %}
+                    </td>
+                    <td onclick="event.stopPropagation();" style="white-space:nowrap;">
+                        {% if sub.remaining > 0 %}
+                        <button class="btn btn-primary" style="padding:3px 8px;font-size:10px;" onclick="startForCombo('{{ entity.name|escapejs }}', '{{ sub.country|escapejs }}', '{{ sub.keyword|escapejs }}')">&#9654;</button>
+                        {% endif %}
+                        {% if sub.running > 0 or sub.pending > 0 %}
+                        <button class="btn" style="padding:3px 8px;font-size:10px;background:#7f1d1d;color:#fca5a5;" onclick="stopEntity('{{ entity.name|escapejs }}')">&#9724;</button>
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr id="ip-sub-{{ forloop.parentloop.counter }}-{{ forloop.counter }}" style="display:none;" class="ip-sub-row">
+                    <td colspan="5" style="padding:4px 8px;">
+                        {% if sub.failed_tasks %}
+                        <table class="ip-sub-table">
+                            <thead><tr><th>Company</th><th>Website</th><th>Error</th><th>Action</th></tr></thead>
+                            <tbody>
+                                {% for ft in sub.failed_tasks %}
+                                <tr id="ft-row-{{ ft.id }}">
+                                    <td>{{ ft.company_name|truncatechars:20 }}</td>
+                                    <td><a class="link" href="{{ ft.website }}" target="_blank">{{ ft.website|truncatechars:28 }}</a></td>
+                                    <td style="font-size:10px;color:#f87171;">{{ ft.message|truncatechars:35 }}</td>
+                                    <td><button class="btn btn-primary" style="padding:3px 8px;font-size:10px;" onclick="retryUrl('{{ entity.name|escapejs }}',{{ ft.id }},'{{ ft.website|escapejs }}','{{ ft.company_name|escapejs }}',this)">&#8635; Retry</button></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        {% else %}
+                        <div style="padding:8px;color:var(--text-dim);font-size:11px;text-align:center;">No failed URLs</div>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endfor %}
+{% else %}
+<div class="empty-state">
+    <p style="font-size:36px;margin-bottom:8px;">&#9654;</p>
+    <p>No form automation tasks yet. Start from <a href="{% url 'master_form_automation' %}" style="color:var(--purple);">Form Automation</a>.</p>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block form_extra_js %}
+<style>
+.ip-entity { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 12px; }
+.ip-entity-header { padding: 14px 20px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; transition: background 0.15s; }
+.ip-entity-header:hover { background: #263044; }
+.ip-arrow { color: var(--text-dim); font-size: 11px; transition: transform 0.25s; display: inline-block; }
+.ip-arrow.open { transform: rotate(90deg); }
+.ip-processing { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 6px 12px; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.ip-table { width: 100%; border-collapse: collapse; }
+.ip-table thead th { background: var(--bg); padding: 8px 12px; text-align: left; font-size: 10px; color: var(--text-dim); text-transform: uppercase; }
+.ip-table tbody td { padding: 8px 12px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-muted); }
+.ip-row { cursor: pointer; transition: background 0.15s; }
+.ip-row:hover { background: #263044; }
+.ip-sub-row { background: var(--bg); }
+.ip-sub-table { width: calc(100% - 16px); border-collapse: collapse; margin: 4px 8px; }
+.ip-sub-table thead th { background: var(--surface); padding: 5px 8px; font-size: 9px; color: var(--text-dim); text-transform: uppercase; }
+.ip-sub-table tbody td { padding: 6px 8px; border-top: 1px solid var(--surface); font-size: 11px; }
+</style>
+<script>
+function toggleEntity(header) {
+    const entity = header.closest('.ip-entity');
+    const detail = entity.querySelector('.ip-detail');
+    const arrow = header.querySelector('.ip-arrow');
+    if (detail.style.display === 'none') { detail.style.display = 'block'; arrow.classList.add('open'); }
+    else { detail.style.display = 'none'; arrow.classList.remove('open'); }
+}
+
+function toggleSubDetail(id) {
+    const el = document.getElementById(id);
+    el.style.display = el.style.display === 'none' ? 'table-row' : 'none';
+}
+
+async function stopEntity(name) {
+    if (!confirm(`Stop all tasks for ${name}?`)) return;
+    await postJSON('/form/master/api/in-progress/stop-all/', { entity_name: name });
+    showToast(`Stopped ${name}`);
+}
+
+async function stopAll() {
+    if (!confirm('Stop ALL?')) return;
+    await postJSON('/form/master/api/in-progress/stop-all/', {});
+    showToast('All stopped');
+}
+
+async function stopBatch(batchId) {
+    await postJSON('/form/master/api/in-progress/stop-all/', { batch_id: batchId });
+    showToast('Batch stopped');
+}
+
+async function startForCombo(entityName, country, keyword) {
+    event.stopPropagation();
+    const cat = keyword === 'Other' ? 'Others' : keyword;
+    try {
+        const resp = await postJSON('/form/master/api/form-automation/run-batch/', { entity_name: entityName, country, category: cat });
+        const data = await resp.json();
+        showToast(data.started ? `Started ${data.total}` : (data.message || 'Nothing to process'));
+    } catch(e) { showToast('Error: ' + e.message); }
+}
+
+async function retryUrl(entityName, taskId, website, companyName, btn) {
+    if (event) event.stopPropagation();
+    btn.disabled = true;
+    btn.innerHTML = '<span class="mini-spinner"></span>';
+    try {
+        const resp = await postJSON('/form/master/api/form-automation/run/', { entity_name: entityName, website, company_name: companyName });
+        if (!resp.ok) throw new Error('Failed');
+        const data = await resp.json();
+        const newTaskId = data.task_id || taskId;
+        showToast('Retry started');
+        // Update row inline
+        const row = btn.closest('tr');
+        if (row) {
+            const errCell = row.querySelector('td:nth-child(3)');
+            if (errCell) errCell.innerHTML = '<span style="color:#fbbf24;font-size:10px;"><span class="mini-spinner"></span> Retrying...</span>';
+            const actionCell = row.querySelector('td:nth-child(4)');
+            if (actionCell) actionCell.innerHTML = `<button class="btn" style="padding:3px 8px;font-size:10px;background:#7f1d1d;color:#fca5a5;" onclick="event.stopPropagation();cancelTask(${newTaskId})">&#9724; Cancel</button>`;
+        }
+    } catch(e) { btn.textContent = 'Error'; btn.disabled = false; }
+}
+
+async function cancelTask(taskId) {
+    if (event) event.stopPropagation();
+    await postJSON(`/form/master/api/form-automation/cancel/${taskId}/`, {});
+    showToast('Cancelled');
+}
+
+// === SINGLE LIVE POLL — updates everything ===
+setInterval(async () => {
+    try {
+        const resp = await fetch('/form/master/api/in-progress/live/');
+        const data = await resp.json();
+        const g = data.global;
+
+        // 1. Update global cards
+        document.getElementById('gRunning').textContent = g.running;
+        document.getElementById('gPending').textContent = g.pending;
+        document.getElementById('gSuccess').textContent = g.success;
+        document.getElementById('gFailed').textContent = g.failed;
+
+        // 2. Update each entity
+        document.querySelectorAll('.ip-entity').forEach(el => {
+            const name = el.dataset.entity;
+            const eData = (data.entities || {})[name];
+            if (!eData) return;
+
+            // 2a. Header stats
+            const successBadge = el.querySelector('.ip-success');
+            const failedBadge = el.querySelector('.ip-failed');
+            const totalSpan = el.querySelector('.ip-total');
+            const statusBadge = el.querySelector('.ip-status-badge');
+            if (successBadge) successBadge.textContent = eData.success;
+            if (failedBadge) failedBadge.textContent = eData.failed;
+            if (totalSpan) totalSpan.textContent = '/ ' + eData.total;
+
+            // 2b. Status badge
+            if (statusBadge) {
+                statusBadge.innerHTML = eData.active
+                    ? '<span class="badge" style="background:#422006;color:#fbbf24;"><span class="mini-spinner" style="margin-right:4px;"></span> Active</span>'
+                    : '<span class="badge" style="background:var(--border);color:var(--text-muted);">Idle</span>';
+            }
+
+            // 2c. Stop button
+            const stopBtn = el.querySelector('.ip-stop-btn');
+            if (stopBtn) stopBtn.style.display = eData.active ? '' : 'none';
+
+            // 2d. Currently Processing — REPLACE entirely
+            const procSection = el.querySelector('.ip-proc-section');
+            if (procSection) {
+                const rts = eData.running_tasks || [];
+                if (rts.length > 0) {
+                    procSection.style.padding = '0 20px 10px';
+                    procSection.innerHTML = rts.map(rt =>
+                        `<div class="ip-processing"><span class="mini-spinner"></span><span style="font-size:12px;color:var(--text);">${esc(rt.company)}</span><a class="link" href="${esc(rt.website)}" target="_blank">${esc(rt.website.substring(0,35))}</a>${rt.country ? '<span class="badge badge-blue" style="font-size:9px;">'+esc(rt.country)+'</span>' : ''}${rt.keyword ? '<span class="badge badge-purple" style="font-size:9px;">'+esc(rt.keyword)+'</span>' : ''}<button class="btn" style="padding:2px 6px;font-size:9px;background:#7f1d1d;color:#fca5a5;margin-left:auto;" onclick="event.stopPropagation();stopBatch('${esc(rt.batch_id)}')">&#9724;</button></div>`
+                    ).join('');
+                } else {
+                    procSection.innerHTML = '';
+                    procSection.style.padding = '0 20px';
+                }
+            }
+
+            // 2e. Update failed URL sub-table rows (retry/cancel status)
+            const taskStatuses = eData.task_statuses || {};
+            el.querySelectorAll('.ip-sub-table tbody tr').forEach(row => {
+                const link = row.querySelector('a.link');
+                if (!link) return;
+                const url = link.getAttribute('href');
+                const ts = taskStatuses[url];
+                if (!ts) return;
+
+                const errCell = row.querySelector('td:nth-child(3)');
+                const actionCell = row.querySelector('td:nth-child(4)');
+
+                if (ts.status === 'running') {
+                    if (errCell) errCell.innerHTML = '<span style="color:#fbbf24;font-size:10px;"><span class="mini-spinner"></span> Running...</span>';
+                    if (actionCell) actionCell.innerHTML = `<button class="btn" style="padding:3px 8px;font-size:10px;background:#7f1d1d;color:#fca5a5;" onclick="event.stopPropagation();cancelTask(${ts.id})">&#9724; Cancel</button>`;
+                } else if (ts.status === 'success') {
+                    if (errCell) errCell.innerHTML = '<span style="color:#4ade80;font-size:10px;">Success</span>';
+                    if (actionCell) actionCell.innerHTML = '<span style="color:#4ade80;font-size:10px;">Done</span>';
+                    row.style.opacity = '0.5';
+                } else if (ts.status === 'cancelled') {
+                    if (errCell) errCell.innerHTML = '<span style="color:var(--text-muted);font-size:10px;">Cancelled</span>';
+                    if (actionCell) actionCell.innerHTML = `<button class="btn btn-primary" style="padding:3px 8px;font-size:10px;" onclick="event.stopPropagation();retryUrl('${esc(name)}',${ts.id},'${esc(url)}','',this)">&#8635; Retry</button>`;
+                } else if (ts.status === 'failed') {
+                    if (errCell) errCell.innerHTML = `<span style="color:#f87171;font-size:10px;">${esc(ts.message)}</span>`;
+                    if (actionCell && !actionCell.querySelector('.mini-spinner')) {
+                        actionCell.innerHTML = `<button class="btn btn-primary" style="padding:3px 8px;font-size:10px;" onclick="event.stopPropagation();retryUrl('${esc(name)}',${ts.id},'${esc(url)}','',this)">&#8635; Retry</button>`;
+                    }
+                }
+            });
+        });
+    } catch(e) {}
+}, 4000);
+</script>
+{% endblock %}

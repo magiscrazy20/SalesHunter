@@ -1,0 +1,176 @@
+{% extends "leads/master/base.html" %}
+{% load leads_extras %}
+{% block title %}{{ entity.company }} — {{ region }}, {{ country }}{% endblock %}
+{% block form_page_title %}{{ entity.company }} — {{ region }}, {{ country }}{% endblock %}
+
+
+{% block form_content %}
+<div class="search-panel" style="padding:14px 24px;">
+    <a href="{% url 'master_form_automation' %}" style="color:var(--purple);text-decoration:none;font-size:13px;">All Entities</a>
+    <span style="color:var(--text-dim);margin:0 6px;">&#8250;</span>
+    <a href="{% url 'master_form_automation_entity' entity.company %}" style="color:var(--purple);text-decoration:none;font-size:13px;">{{ entity.company }}</a>
+    <span style="color:var(--text-dim);margin:0 6px;">&#8250;</span>
+    <a href="{% url 'master_form_automation_country' entity.company country %}" style="color:var(--purple);text-decoration:none;font-size:13px;">{{ country }}</a>
+    <span style="color:var(--text-dim);margin:0 6px;">&#8250;</span>
+    <strong style="color:var(--text);">{{ region }}</strong>
+</div>
+
+<div class="stats">
+    <div class="stat-card"><div class="num">{{ stats.total }}</div><div class="label">Total Leads</div></div>
+    <div class="stat-card"><div class="num" id="successCount" style="color:#4ade80;">{{ stats.success }}</div><div class="label">Success</div></div>
+    <div class="stat-card"><div class="num" id="failedCount" style="color:#f87171;">{{ stats.failed }}</div><div class="label">Failed</div></div>
+    <div class="stat-card"><div class="num" id="runningCount" style="color:#fbbf24;">{{ stats.running }}</div><div class="label">Running</div></div>
+    <div class="stat-card" style="display:flex;align-items:center;">
+        <button class="btn btn-primary" id="startAllBtn" onclick="startAutomation()" style="white-space:nowrap;">&#9654; Start Automation</button>
+    </div>
+</div>
+
+{% include "leads/master/includes/chart_progress.html" with chart_id="region" stats_json=stats_json %}
+
+{% if leads %}
+<h3 style="color:var(--text);font-size:15px;margin-bottom:12px;">Leads — {{ leads|length }}</h3>
+<div class="table-wrap">
+    <table>
+        <thead><tr><th>Company</th><th>Website</th><th>Progress</th><th>Action</th></tr></thead>
+        <tbody>
+            {% for lead in leads %}
+            <tr id="form-row-{{ lead.id }}">
+                <td><span class="company-name">{{ lead.company_name }}</span></td>
+                <td><a class="link" href="{{ lead.website }}" target="_blank">{{ lead.website|truncatechars:40 }}</a></td>
+                <td id="status-{{ lead.id }}">
+                    {% with task=tasks|dict_get:lead.website %}
+                        {% if task %}
+                            {% if task.status == 'success' %}
+                                <span class="badge badge-green">Success</span>
+                            {% elif task.status == 'running' %}
+                                <span class="badge" style="background:#422006;color:#fbbf24;"><span class="mini-spinner" style="margin-right:4px;"></span> Running</span>
+                            {% elif task.status == 'failed' %}
+                                <span class="badge" style="background:#7f1d1d;color:#fca5a5;">Failed</span>
+                                <span style="font-size:10px;color:#f87171;display:block;">{{ task.message|truncatechars:50 }}</span>
+                            {% else %}
+                                <span class="badge" style="background:var(--border);color:var(--text-muted);">Pending</span>
+                            {% endif %}
+                        {% else %}
+                            <span style="color:var(--text-dim);font-size:12px;">—</span>
+                        {% endif %}
+                    {% endwith %}
+                </td>
+                <td>
+                    <button class="btn btn-primary" style="padding:4px 12px;font-size:11px;" onclick="runForm({{ lead.id }}, '{{ lead.website|escapejs }}', '{{ lead.company_name|escapejs }}', this)">Fill Form</button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="empty-state"><p>No leads with websites in this region.</p></div>
+{% endif %}
+{% endblock %}
+
+{% block form_extra_js %}
+<script>
+const entityName = '{{ entity.company|escapejs }}';
+const country = '{{ country|escapejs }}';
+const region = '{{ region|escapejs }}';
+const category = '{{ category|escapejs }}';
+
+async function startAutomation() {
+    const btn = document.getElementById('startAllBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="mini-spinner" style="margin-right:4px;"></span> Starting...';
+    try {
+        const resp = await postJSON('/form/master/api/form-automation/run-batch/', {
+            entity_name: entityName, country, region, category
+        });
+        const data = await resp.json();
+        if (data.started) {
+            btn.innerHTML = '<span class="mini-spinner" style="margin-right:4px;"></span> Running ' + data.total + '...';
+            showToast(data.message);
+        } else {
+            btn.innerHTML = '&#9654; Start Automation';
+            btn.disabled = false;
+            showToast(data.message || 'Nothing to process');
+        }
+    } catch(e) { btn.innerHTML = '&#9654; Start Automation'; btn.disabled = false; }
+}
+
+async function runForm(leadId, website, companyName, btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="mini-spinner"></span>';
+    const statusCell = document.getElementById(`status-${leadId}`);
+    statusCell.innerHTML = '<span class="badge" style="background:#422006;color:#fbbf24;"><span class="mini-spinner" style="margin-right:4px;"></span> Running</span>';
+    try {
+        const resp = await postJSON('/form/master/api/form-automation/run/', { entity_name: entityName, lead_id: leadId, website, company_name: companyName });
+        if (!resp.ok) throw new Error(await resp.text());
+        showToast('Form fill started');
+    } catch (err) {
+        statusCell.innerHTML = '<span class="badge" style="background:#7f1d1d;color:#fca5a5;">Error</span>';
+        btn.disabled = false; btn.textContent = 'Fill Form';
+    }
+}
+
+// Poll status + update cards + show currently processing row
+setInterval(async () => {
+    try {
+        const params = new URLSearchParams({entity: entityName, country, region, category});
+        const resp = await fetch(`/form/master/api/form-automation/status/?${params}`);
+        const data = await resp.json();
+        const tasks = data.tasks || {};
+        const c = data.counts || {};
+
+        document.getElementById('successCount').textContent = c.success || 0;
+        document.getElementById('failedCount').textContent = c.failed || 0;
+        document.getElementById('runningCount').textContent = c.running || 0;
+
+        // Update each row in the table
+        document.querySelectorAll('tbody tr').forEach(row => {
+            const link = row.querySelector('a.link');
+            if (!link) return;
+            const href = link.href.replace(/\/$/, '');
+
+            // Find matching task
+            let matched = null;
+            for (const [website, info] of Object.entries(tasks)) {
+                if (href === website.replace(/\/$/, '') || href.endsWith(website.replace(/^https?:\/\//, '').replace(/\/$/, ''))) {
+                    matched = info;
+                    break;
+                }
+            }
+
+            const sc = row.querySelector('td:nth-child(3)');
+            const btn = row.querySelector('button');
+
+            if (matched) {
+                if (matched.status === 'success') {
+                    sc.innerHTML = '<span class="badge badge-green">Success</span>';
+                    if (btn) { btn.disabled = true; btn.textContent = 'Done'; btn.style.background = '#059669'; }
+                    row.style.borderLeft = '3px solid #4ade80';
+                } else if (matched.status === 'failed') {
+                    sc.innerHTML = `<span class="badge" style="background:#7f1d1d;color:#fca5a5;">Failed</span><span style="font-size:10px;color:#f87171;display:block;">${esc((matched.message||'').substring(0,50))}</span>`;
+                    if (btn) { btn.disabled = false; btn.textContent = 'Retry'; }
+                    row.style.borderLeft = '3px solid #f87171';
+                } else if (matched.status === 'running') {
+                    sc.innerHTML = '<span class="badge" style="background:#422006;color:#fbbf24;"><span class="mini-spinner" style="margin-right:4px;"></span> Processing...</span>';
+                    if (btn) { btn.disabled = true; btn.innerHTML = '<span class="mini-spinner"></span>'; }
+                    row.style.borderLeft = '3px solid #fbbf24';
+                    row.style.background = '#1a1a2e';
+                } else if (matched.status === 'pending') {
+                    sc.innerHTML = '<span style="color:var(--text-muted);font-size:11px;">Queued</span>';
+                    row.style.borderLeft = '3px solid var(--text-dim)';
+                }
+            } else {
+                row.style.borderLeft = '';
+                row.style.background = '';
+            }
+        });
+
+        if ((c.running || 0) === 0 && (c.pending || 0) === 0) {
+            const ab = document.getElementById('startAllBtn');
+            ab.innerHTML = '&#9654; Start Automation';
+            ab.disabled = false;
+        }
+    } catch(e) {}
+}, 3000);
+</script>
+{% endblock %}
